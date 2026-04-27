@@ -1,0 +1,55 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  
+  --color-brand: #1FCFB1;
+  --color-brand-dark: #17a891;
+  --color-background: #0d1117;
+  --color-surface: #161b22;
+  --color-border: #30363d;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-white font-sans antialiased;
+  }
+}
+
+.glass {
+  @apply backdrop-blur-md bg-white/5 border border-white/10;
+}
+
+.will-change-transform {
+  will-change: transform;
+}
+
+.glow-text {
+  text-shadow: 0 0 20px rgba(31, 207, 177, 0.5);
+}
+
+.uiverse-btn {
+  @apply text-sm py-3 px-8 rounded-xl font-bold uppercase transition-all duration-300;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  background-color: var(--color-surface);
+  color: white;
+  box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.4), 0px 0px 10px rgba(31, 207, 177, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.uiverse-btn:active {
+  scale: 0.92;
+}
+
+.uiverse-btn:hover {
+  background: var(--color-brand);
+  color: var(--color-background);
+  box-shadow: 0px 0px 25px rgba(31, 207, 177, 0.4);
+  transform: translateY(-2px);
+}
