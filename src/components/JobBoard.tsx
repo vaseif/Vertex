@@ -10,9 +10,40 @@ import {
 import { Job, UserProfile } from '../types';
 import { supabase } from '../lib/supabase';
 
-const HR_TEAM = [
-  { id: 4, name: 'HR. Ziad Ramadan', phone: '201226979820' },
-];
+// تم تعديل واجهة Job لتشمل hr اختيارياً
+interface Job {
+  id: number;
+  status: string;
+  company: string;
+  account: string;
+  shifts: string;
+  interview: string;
+  location: string;
+  graduation: string;
+  nationality: string;
+  maxAge: number | null;
+  language: string;
+  languageRequirement: string;
+  salary: string;
+  process: string;
+  training: string;
+  details: string;
+  locationType: string;
+  targetLanguage: string;
+  contactWhatsapp: string;
+  contactPhone: string;
+  contactEmail: string;
+  contactNote: string;
+  sort_order?: number;
+  hr_id: number | null;
+  hr?: {
+    id: number;
+    name: string;
+    phone: string;
+    active: boolean;
+  } | null;
+  matchScore?: number;
+}
 
 const languageLevels: Record<string, number> = {
   'A2': 0, 'B1': 1, 'B1+': 2, 'B2': 3, 'B2+': 4, 'C1': 5, 'C2': 6
@@ -77,51 +108,91 @@ export default function JobBoard() {
   const [copied, setCopied] = useState(false);
   const [locationCopied, setLocationCopied] = useState(false);
 
-  // ✅ جلب الداتا من Supabase
+  // جلب العروض مع بيانات HR المرتبطة
   useEffect(() => {
     const fetchJobs = async () => {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('offers')
-        .select('*')
-        .in('status', ['Active', 'Hold'])
-        .order('id', { ascending: true });
+      try {
+        // جلب جميع العروض النشطة أو المعلقة
+        const { data: offers, error: offersError } = await supabase
+          .from('offers')
+          .select('*')
+          .in('status', ['Active', 'Hold'])
+          .order('sort_order', { ascending: true })
+          .order('id', { ascending: true });
 
-      if (error) {
-        console.error('Error fetching jobs:', error);
-      } else {
-        const mapped = (data || []).map((item: any) => ({
-          id: item.id,
-          status: item.status,
-          company: item.company,
-          account: item.account,
-          shifts: item.shifts,
-          interview: item.interview,
-          location: item.location,
-          graduation: item.graduation,
-          nationality: item.nationality,
-          maxAge: item.max_age,
-          language: item.language,
-          languageRequirement: item.language_requirement,
-          salary: item.salary,
-          process: item.process,
-          training: item.training,
-          details: item.details,
-          locationType: item.location_type,
-          targetLanguage: item.target_language,
-          contactWhatsapp: item.contact_whatsapp || '',
-          contactPhone: item.contact_phone || '',
-          contactEmail: item.contact_email || '',
-          contactNote: item.contact_note || '',
-        }));
+        if (offersError) throw offersError;
+
+        if (!offers || offers.length === 0) {
+          setAllJobs([]);
+          setLoading(false);
+          return;
+        }
+
+        // استخراج المعرفات الفريدة لـ hr_id من العروض (غير null)
+        const hrIds = [...new Set(offers.map(offer => offer.hr_id).filter(id => id !== null))];
+
+        let hrMap = new Map();
+        if (hrIds.length > 0) {
+          const { data: hrTeam, error: hrError } = await supabase
+            .from('hr_team')
+            .select('*')
+            .in('id', hrIds);
+          if (hrError) throw hrError;
+          if (hrTeam) {
+            hrTeam.forEach(hr => hrMap.set(hr.id, hr));
+          }
+        }
+
+        // تحويل البيانات إلى واجهة Job مع دمج بيانات التواصل
+        const mapped: Job[] = offers.map((offer: any) => {
+          const linkedHr = offer.hr_id ? hrMap.get(offer.hr_id) : null;
+          // تحديد بيانات التواصل: إذا كان هناك hr مرتبط نستخدم رقمه، وإلا نستخدم الحقول اليدوية من العرض
+          const whatsapp = linkedHr ? linkedHr.phone : (offer.contact_whatsapp || '');
+          const phone = linkedHr ? linkedHr.phone : (offer.contact_phone || '');
+          const email = offer.contact_email || '';
+          const note = linkedHr ? `تواصل مع ${linkedHr.name} على واتساب` : (offer.contact_note || '');
+          
+          return {
+            id: offer.id,
+            status: offer.status,
+            company: offer.company,
+            account: offer.account,
+            shifts: offer.shifts,
+            interview: offer.interview,
+            location: offer.location,
+            graduation: offer.graduation,
+            nationality: offer.nationality,
+            maxAge: offer.max_age,
+            language: offer.language,
+            languageRequirement: offer.language_requirement,
+            salary: offer.salary,
+            process: offer.process,
+            training: offer.training,
+            details: offer.details,
+            locationType: offer.location_type,
+            targetLanguage: offer.target_language,
+            contactWhatsapp: whatsapp,
+            contactPhone: phone,
+            contactEmail: email,
+            contactNote: note,
+            hr_id: offer.hr_id,
+            hr: linkedHr,
+          };
+        });
+
         setAllJobs(mapped);
+      } catch (err) {
+        console.error('Error fetching jobs:', err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchJobs();
   }, []);
 
+  // تأثير التمرير عند عرض النتائج
   useEffect(() => {
     if (showResults) {
       const resultsElement = document.getElementById('results');
@@ -131,6 +202,7 @@ export default function JobBoard() {
     }
   }, [currentPage]);
 
+  // حساب درجة المطابقة
   const matchedJobs = useMemo(() => {
     return allJobs.map(job => {
       let score = 100;
@@ -709,9 +781,9 @@ I want to apply in this offer - ${selectedJob.company} (${selectedJob.account}) 
                       </div>
 
                       <div className="w-full max-w-sm flex flex-col gap-3">
-                        {(selectedJob as any).contactWhatsapp && (
+                        {selectedJob.contactWhatsapp && (
                           <a
-                            href={`https://wa.me/${(selectedJob as any).contactWhatsapp}`}
+                            href={`https://wa.me/${selectedJob.contactWhatsapp}`}
                             target="_blank"
                             rel="noreferrer"
                             className="w-full p-5 md:p-6 rounded-xl md:rounded-2xl bg-[#25D366]/10 border border-[#25D366]/30 hover:bg-[#25D366]/20 transition-all flex items-center gap-4 group"
@@ -719,48 +791,48 @@ I want to apply in this offer - ${selectedJob.company} (${selectedJob.account}) 
                             <div className="w-10 h-10 rounded-xl bg-[#25D366]/20 flex items-center justify-center text-[#25D366] text-lg shrink-0">💬</div>
                             <div className="text-left">
                               <p className="text-[10px] font-black uppercase tracking-widest text-[#25D366]/70">WhatsApp</p>
-                              <p className="font-bold text-white text-sm">{(selectedJob as any).contactWhatsapp}</p>
+                              <p className="font-bold text-white text-sm">{selectedJob.contactWhatsapp}</p>
                             </div>
                             <ChevronRight className="w-4 h-4 text-[#25D366] ml-auto" />
                           </a>
                         )}
 
-                        {(selectedJob as any).contactPhone && (
+                        {selectedJob.contactPhone && (
                           <a
-                            href={`tel:${(selectedJob as any).contactPhone}`}
+                            href={`tel:${selectedJob.contactPhone}`}
                             className="w-full p-5 md:p-6 rounded-xl md:rounded-2xl bg-white/5 border border-white/10 hover:border-brand/40 hover:bg-brand/5 transition-all flex items-center gap-4 group"
                           >
                             <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-brand text-lg shrink-0">📞</div>
                             <div className="text-left">
                               <p className="text-[10px] font-black uppercase tracking-widest text-white/40">Phone</p>
-                              <p className="font-bold text-white text-sm">{(selectedJob as any).contactPhone}</p>
+                              <p className="font-bold text-white text-sm">{selectedJob.contactPhone}</p>
                             </div>
                             <ChevronRight className="w-4 h-4 text-brand ml-auto" />
                           </a>
                         )}
 
-                        {(selectedJob as any).contactEmail && (
+                        {selectedJob.contactEmail && (
                           <a
-                            href={`mailto:${(selectedJob as any).contactEmail}`}
+                            href={`mailto:${selectedJob.contactEmail}`}
                             className="w-full p-5 md:p-6 rounded-xl md:rounded-2xl bg-white/5 border border-white/10 hover:border-brand/40 hover:bg-brand/5 transition-all flex items-center gap-4 group"
                           >
                             <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-brand text-lg shrink-0">✉️</div>
                             <div className="text-left">
                               <p className="text-[10px] font-black uppercase tracking-widest text-white/40">Email</p>
-                              <p className="font-bold text-white text-sm">{(selectedJob as any).contactEmail}</p>
+                              <p className="font-bold text-white text-sm">{selectedJob.contactEmail}</p>
                             </div>
                             <ChevronRight className="w-4 h-4 text-brand ml-auto" />
                           </a>
                         )}
 
-                        {(selectedJob as any).contactNote && (
+                        {selectedJob.contactNote && (
                           <div className="w-full p-4 md:p-5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-3">
                             <span className="text-amber-400 text-base shrink-0 mt-0.5">💡</span>
-                            <p className="text-amber-300/80 text-xs font-medium leading-relaxed">{(selectedJob as any).contactNote}</p>
+                            <p className="text-amber-300/80 text-xs font-medium leading-relaxed">{selectedJob.contactNote}</p>
                           </div>
                         )}
 
-                        {!(selectedJob as any).contactWhatsapp && !(selectedJob as any).contactPhone && !(selectedJob as any).contactEmail && (
+                        {!selectedJob.contactWhatsapp && !selectedJob.contactPhone && !selectedJob.contactEmail && (
                           <p className="text-white/30 text-sm text-center py-4">No contact info available for this offer yet.</p>
                         )}
                       </div>

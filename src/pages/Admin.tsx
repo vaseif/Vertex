@@ -25,6 +25,7 @@ interface Offer {
   contact_email: string;
   contact_note: string;
   sort_order: number;
+  hr_id: number | null; // NEW: ربط مع hr_team
 }
 
 const empty: Omit<Offer, 'id'> = {
@@ -50,6 +51,7 @@ const empty: Omit<Offer, 'id'> = {
   contact_email: '',
   contact_note: '',
   sort_order: 0,
+  hr_id: null,
 };
 
 export default function Admin() {
@@ -71,6 +73,7 @@ export default function Admin() {
   const [hrSaving, setHrSaving] = useState(false);
   const [showHrSection, setShowHrSection] = useState(false);
 
+  // جلب HR Team
   useEffect(() => {
     const fetchHr = async () => {
       const { data } = await supabase.from('hr_team').select('*').order('id', { ascending: true });
@@ -92,6 +95,9 @@ export default function Admin() {
     if (!confirm('Delete this HR contract?')) return;
     await supabase.from('hr_team').delete().eq('id', id);
     setHrTeam(prev => prev.filter(h => h.id !== id));
+    // يمكن أيضاً تحديث العروض التي كانت مرتبطة بهذا الـ HR (تعيين hr_id = null)
+    await supabase.from('offers').update({ hr_id: null }).eq('hr_id', id);
+    setOffers(prev => prev.map(o => o.hr_id === id ? { ...o, hr_id: null } : o));
   };
 
   const toggleHr = async (id: number, current: boolean) => {
@@ -99,7 +105,7 @@ export default function Admin() {
     setHrTeam(prev => prev.map(h => h.id === id ? { ...h, active: !current } : h));
   };
 
-  // Password gate state
+  // Password gate state (نفس الكود القديم)
   const [accessModalOpen, setAccessModalOpen] = useState(true);
   const [passwordInput, setPasswordInput] = useState('');
   const [pwAttempts, setPwAttempts] = useState(0);
@@ -139,6 +145,44 @@ export default function Admin() {
     await Promise.all(updated.map(o => supabase.from('offers').update({ sort_order: o.sort_order }).eq('id', o.id)));
   };
 
+  // دالة لتعبئة حقول التواصل من HR المختار (للإضافة)
+  const handleHrSelectForAdd = (hrId: number | null) => {
+    if (hrId === null) {
+      setForm(prev => ({ ...prev, hr_id: null, contact_whatsapp: '', contact_phone: '', contact_email: '', contact_note: '' }));
+      return;
+    }
+    const selected = hrTeam.find(h => h.id === hrId);
+    if (selected) {
+      setForm(prev => ({
+        ...prev,
+        hr_id: hrId,
+        contact_whatsapp: selected.phone,
+        contact_phone: selected.phone,
+        contact_email: '',
+        contact_note: `تواصل مع ${selected.name} على واتساب`,
+      }));
+    }
+  };
+
+  // للتعديل
+  const handleHrSelectForEdit = (hrId: number | null) => {
+    if (hrId === null) {
+      setEditForm(prev => ({ ...prev, hr_id: null, contact_whatsapp: '', contact_phone: '', contact_email: '', contact_note: '' }));
+      return;
+    }
+    const selected = hrTeam.find(h => h.id === hrId);
+    if (selected) {
+      setEditForm(prev => ({
+        ...prev,
+        hr_id: hrId,
+        contact_whatsapp: selected.phone,
+        contact_phone: selected.phone,
+        contact_email: '',
+        contact_note: `تواصل مع ${selected.name} على واتساب`,
+      }));
+    }
+  };
+
   const handleSave = async () => {
     if (!form.company || !form.account) return alert('الـ Company والـ Account مطلوبين!');
     setSaving(true);
@@ -170,7 +214,7 @@ export default function Admin() {
     setUpdating(false);
   };
 
-  // Handle password gate
+  // Password gate logic
   const handlePasswordSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (pwLocked) return;
@@ -222,12 +266,10 @@ export default function Admin() {
   return (
     <>
       <style>{`
+        /* كل الستايلات كما هي في الملف الأصلي - لم تتغير */
         @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800;900&family=Space+Mono:wght@400;700&display=swap');
-
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         body { background: #060608; }
-
-        /* ── Page ── */
         .admin-wrapper {
           min-height: 100vh;
           background: #060608;
@@ -237,8 +279,6 @@ export default function Admin() {
           position: relative;
           overflow-x: hidden;
         }
-
-        /* subtle grid bg */
         .admin-wrapper::before {
           content: '';
           position: fixed;
@@ -250,7 +290,6 @@ export default function Admin() {
           pointer-events: none;
           z-index: 0;
         }
-
         .admin-container {
           max-width: 1240px;
           margin: 0 auto;
@@ -258,13 +297,10 @@ export default function Admin() {
           z-index: 1;
           animation: fadeUp 0.5s ease both;
         }
-
         @keyframes fadeUp {
           from { opacity: 0; transform: translateY(18px); }
           to   { opacity: 1; transform: translateY(0); }
         }
-
-        /* ── Header ── */
         .admin-header {
           display: flex;
           justify-content: space-between;
@@ -275,9 +311,7 @@ export default function Admin() {
           gap: 1rem;
           flex-wrap: wrap;
         }
-
         .header-brand { display: flex; align-items: center; gap: 14px; }
-
         .brand-icon {
           width: 48px; height: 48px;
           background: linear-gradient(135deg, #1fcfb1 0%, #0d9e87 100%);
@@ -287,19 +321,16 @@ export default function Admin() {
           box-shadow: 0 0 32px rgba(31,207,177,0.4), 0 0 8px rgba(31,207,177,0.2);
           animation: glowPulse 3s ease-in-out infinite;
         }
-
         @keyframes glowPulse {
           0%,100% { box-shadow: 0 0 32px rgba(31,207,177,0.4), 0 0 8px rgba(31,207,177,0.2); }
           50%      { box-shadow: 0 0 48px rgba(31,207,177,0.6), 0 0 16px rgba(31,207,177,0.3); }
         }
-
         .brand-text h1 {
           font-size: 1.6rem;
           font-weight: 900;
           letter-spacing: -0.03em;
           color: #fff;
         }
-
         .brand-text p {
           font-size: 12px;
           color: #444;
@@ -307,11 +338,8 @@ export default function Admin() {
           letter-spacing: 0.05em;
           margin-top: 3px;
         }
-
         .brand-text span { color: #1fcfb1; }
-
         .header-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-
         .btn-ghost {
           padding: 10px 20px;
           border-radius: 10px;
@@ -328,7 +356,6 @@ export default function Admin() {
           display: inline-flex; align-items: center; gap: 6px;
         }
         .btn-ghost:hover { border-color: #333; color: #ccc; background: rgba(255,255,255,0.04); }
-
         .btn-primary {
           padding: 10px 22px;
           border-radius: 10px;
@@ -350,15 +377,12 @@ export default function Admin() {
           transform: translateY(-2px);
         }
         .btn-primary:active { transform: translateY(0); }
-
-        /* ── Stats ── */
         .stats-bar {
           display: grid;
           grid-template-columns: repeat(4, 1fr);
           gap: 14px;
           margin-bottom: 2rem;
         }
-
         .stat-card {
           background: #0c0c0f;
           border: 1px solid #1a1a1e;
@@ -374,7 +398,6 @@ export default function Admin() {
         .stat-card:nth-child(2) { animation-delay: 0.1s; }
         .stat-card:nth-child(3) { animation-delay: 0.15s; }
         .stat-card:nth-child(4) { animation-delay: 0.2s; }
-
         .stat-card::after {
           content: '';
           position: absolute;
@@ -388,10 +411,8 @@ export default function Admin() {
         .stat-card:nth-child(2)::after { background: linear-gradient(90deg, #1fcfb1, transparent); }
         .stat-card:nth-child(3)::after { background: linear-gradient(90deg, #f59e0b, transparent); }
         .stat-card:nth-child(4)::after { background: linear-gradient(90deg, #ef4444, transparent); }
-
         .stat-card:hover { border-color: #2a2a30; transform: translateY(-3px); box-shadow: 0 8px 32px rgba(0,0,0,0.4); }
         .stat-card:hover::after { opacity: 1; }
-
         .stat-label {
           font-size: 10px;
           font-weight: 700;
@@ -400,7 +421,6 @@ export default function Admin() {
           color: #3a3a44;
           margin-bottom: 8px;
         }
-
         .stat-value {
           font-size: 2rem;
           font-weight: 900;
@@ -408,12 +428,9 @@ export default function Admin() {
           color: #fff;
           line-height: 1;
         }
-
         .stat-value.teal { color: #1fcfb1; text-shadow: 0 0 20px rgba(31,207,177,0.4); }
         .stat-value.amber { color: #f59e0b; text-shadow: 0 0 20px rgba(245,158,11,0.4); }
         .stat-value.red { color: #ef4444; text-shadow: 0 0 20px rgba(239,68,68,0.4); }
-
-        /* ── Add Form ── */
         .add-form {
           background: #0c0c0f;
           border: 1px solid #1e1e24;
@@ -424,12 +441,10 @@ export default function Admin() {
           animation: slideDown 0.35s cubic-bezier(0.16,1,0.3,1) both;
           box-shadow: 0 0 60px rgba(31,207,177,0.05);
         }
-
         @keyframes slideDown {
           from { opacity: 0; transform: translateY(-16px) scaleY(0.97); }
           to   { opacity: 1; transform: translateY(0)   scaleY(1); }
         }
-
         .form-title {
           font-size: 11px;
           font-weight: 800;
@@ -441,7 +456,6 @@ export default function Admin() {
           align-items: center;
           gap: 8px;
         }
-
         .form-title::before {
           content: '';
           width: 3px; height: 16px;
@@ -449,13 +463,11 @@ export default function Admin() {
           border-radius: 2px;
           box-shadow: 0 0 8px #1fcfb1;
         }
-
         .form-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 14px;
         }
-
         .form-field label {
           font-size: 10px;
           font-weight: 700;
@@ -465,7 +477,6 @@ export default function Admin() {
           display: block;
           margin-bottom: 7px;
         }
-
         .form-field input,
         .form-field select,
         .form-field textarea {
@@ -480,16 +491,13 @@ export default function Admin() {
           outline: none;
           transition: border-color 0.2s, box-shadow 0.2s;
         }
-
         .form-field input:focus,
         .form-field select:focus,
         .form-field textarea:focus {
           border-color: rgba(31,207,177,0.5);
           box-shadow: 0 0 0 3px rgba(31,207,177,0.08);
         }
-
         .form-field select option { background: #111; }
-
         .btn-save {
           margin-top: 1.5rem;
           padding: 13px 36px;
@@ -511,10 +519,7 @@ export default function Admin() {
           transform: translateY(-2px);
         }
         .btn-save:disabled { opacity: 0.45; cursor: not-allowed; }
-
-        /* ── Search ── */
         .search-wrap { position: relative; margin-bottom: 1.5rem; }
-
         .search-icon {
           position: absolute;
           left: 16px; top: 50%;
@@ -523,7 +528,6 @@ export default function Admin() {
           font-size: 14px;
           pointer-events: none;
         }
-
         .search-input {
           width: 100%;
           background: #0c0c0f;
@@ -541,26 +545,21 @@ export default function Admin() {
           border-color: rgba(31,207,177,0.3);
           box-shadow: 0 0 0 3px rgba(31,207,177,0.06);
         }
-
-        /* ── Table ── */
         .table-wrap {
           background: #0c0c0f;
           border: 1px solid #1a1a1e;
           border-radius: 18px;
           overflow: hidden;
         }
-
         .offers-table {
           width: 100%;
           border-collapse: collapse;
           font-size: 14px;
         }
-
         .offers-table thead tr {
           background: #080809;
           border-bottom: 1px solid #161618;
         }
-
         .offers-table th {
           padding: 14px 18px;
           text-align: left;
@@ -570,7 +569,6 @@ export default function Admin() {
           text-transform: uppercase;
           color: #2e2e38;
         }
-
         .offers-table tbody tr {
           border-bottom: 1px solid #111114;
           transition: background 0.15s;
@@ -581,27 +579,21 @@ export default function Admin() {
         .offers-table tbody tr:last-child { border-bottom: none; }
         .offers-table tbody tr:hover { background: rgba(255,255,255,0.025); }
         .offers-table tbody tr:hover .btn-edit { opacity: 1; transform: scale(1); }
-
         .offers-table td { padding: 14px 18px; vertical-align: middle; }
-
         @keyframes rowIn {
           from { opacity: 0; transform: translateX(-8px); }
           to   { opacity: 1; transform: translateX(0); }
         }
-
         .td-id {
           color: #2e2e38;
           font-family: 'Space Mono', monospace;
           font-size: 11px;
           font-weight: 700;
         }
-
         .td-company { font-weight: 800; color: #fff; letter-spacing: -0.01em; }
         .td-account { color: #5a5a68; font-weight: 600; }
         .td-salary { color: #4a4a58; font-weight: 700; font-family: 'Space Mono', monospace; font-size: 13px; }
         .td-location { color: #3a3a48; font-size: 13px; }
-
-        /* ── Status Badge ── */
         .status-badge {
           display: inline-flex;
           align-items: center;
@@ -615,7 +607,6 @@ export default function Admin() {
           border-width: 1px;
           border-style: solid;
         }
-
         .status-dot {
           width: 6px; height: 6px;
           border-radius: 50%;
@@ -628,15 +619,11 @@ export default function Admin() {
         }
         .status-dot.hold   { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
         .status-dot.inactive { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
-
         @keyframes dotPulse {
           0%,100% { box-shadow: 0 0 6px #1fcfb1; }
           50%      { box-shadow: 0 0 14px #1fcfb1, 0 0 4px #1fcfb1; }
         }
-
-        /* ── Action Buttons ── */
         .action-btns { display: flex; gap: 7px; align-items: center; }
-
         .btn-edit {
           padding: 6px 12px;
           border-radius: 8px;
@@ -654,7 +641,6 @@ export default function Admin() {
           display: inline-flex; align-items: center; gap: 5px;
         }
         .btn-edit:hover { border-color: rgba(31,207,177,0.5); color: #1fcfb1; background: rgba(31,207,177,0.06); }
-
         .btn-toggle {
           padding: 6px 14px;
           border-radius: 8px;
@@ -670,7 +656,6 @@ export default function Admin() {
           display: inline-flex; align-items: center; gap: 5px;
         }
         .btn-toggle:hover { border-color: rgba(31,207,177,0.5); color: #1fcfb1; background: rgba(31,207,177,0.05); }
-
         .btn-delete {
           padding: 6px 14px;
           border-radius: 8px;
@@ -686,8 +671,6 @@ export default function Admin() {
           display: inline-flex; align-items: center; gap: 5px;
         }
         .btn-delete:hover { border-color: rgba(239,68,68,0.5); color: #ef4444; background: rgba(239,68,68,0.08); }
-
-        /* ── Edit Modal ── */
         .modal-overlay {
           position: fixed;
           inset: 0;
@@ -699,12 +682,10 @@ export default function Admin() {
           justify-content: flex-end;
           animation: overlayIn 0.25s ease both;
         }
-
         @keyframes overlayIn {
           from { opacity: 0; }
           to   { opacity: 1; }
         }
-
         .modal-panel {
           width: 100%;
           max-width: 540px;
@@ -718,12 +699,10 @@ export default function Admin() {
           flex-direction: column;
           gap: 0;
         }
-
         @keyframes slideInRight {
           from { transform: translateX(60px); opacity: 0; }
           to   { transform: translateX(0);    opacity: 1; }
         }
-
         .modal-header {
           display: flex;
           justify-content: space-between;
@@ -732,14 +711,12 @@ export default function Admin() {
           padding-bottom: 1.5rem;
           border-bottom: 1px solid #161618;
         }
-
         .modal-title {
           font-size: 1.2rem;
           font-weight: 900;
           letter-spacing: -0.02em;
           color: #fff;
         }
-
         .modal-subtitle {
           font-size: 11px;
           color: #444;
@@ -747,9 +724,7 @@ export default function Admin() {
           letter-spacing: 0.05em;
           margin-top: 4px;
         }
-
         .modal-subtitle span { color: #1fcfb1; }
-
         .btn-close {
           width: 34px; height: 34px;
           border-radius: 10px;
@@ -763,13 +738,11 @@ export default function Admin() {
           flex-shrink: 0;
         }
         .btn-close:hover { border-color: #333; color: #ccc; background: rgba(255,255,255,0.05); }
-
         .modal-form-grid {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: 14px;
         }
-
         .modal-actions {
           display: flex;
           gap: 10px;
@@ -777,7 +750,6 @@ export default function Admin() {
           padding-top: 1.5rem;
           border-top: 1px solid #161618;
         }
-
         .btn-update {
           flex: 1;
           padding: 13px;
@@ -799,8 +771,6 @@ export default function Admin() {
           transform: translateY(-2px);
         }
         .btn-update:disabled { opacity: 0.45; cursor: not-allowed; }
-
-        /* ── Loading ── */
         .loading-state {
           text-align: center;
           padding: 4rem;
@@ -810,13 +780,11 @@ export default function Admin() {
           text-transform: uppercase;
           font-size: 12px;
         }
-
         .loading-shimmer {
           display: flex;
           flex-direction: column;
           gap: 1px;
         }
-
         .shimmer-row {
           height: 52px;
           background: linear-gradient(90deg, #0c0c0f 25%, #111116 50%, #0c0c0f 75%);
@@ -827,13 +795,10 @@ export default function Admin() {
         .shimmer-row:nth-child(3) { animation-delay: 0.2s; }
         .shimmer-row:nth-child(4) { animation-delay: 0.3s; }
         .shimmer-row:nth-child(5) { animation-delay: 0.4s; }
-
         @keyframes shimmer {
           0%   { background-position: 200% 0; }
           100% { background-position: -200% 0; }
         }
-
-        /* ── Empty State ── */
         .empty-state {
           text-align: center;
           padding: 5rem 2rem;
@@ -841,10 +806,7 @@ export default function Admin() {
         }
         .empty-icon { font-size: 2.5rem; margin-bottom: 1rem; }
         .empty-state p { font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
-
-        /* ── Mobile Cards ── */
         .mobile-cards { display: none; }
-
         .offer-card {
           background: #0c0c0f;
           border: 1px solid #1a1a1e;
@@ -857,25 +819,20 @@ export default function Admin() {
           transition: border-color 0.2s;
         }
         .offer-card:hover { border-color: #2a2a30; }
-
         .card-top {
           display: flex;
           justify-content: space-between;
           align-items: flex-start;
           gap: 10px;
         }
-
         .card-company { font-weight: 800; color: #fff; font-size: 15px; letter-spacing: -0.01em; }
         .card-account { font-size: 12px; color: #444; font-weight: 600; margin-top: 3px; }
         .card-salary { font-size: 13px; color: #555; font-weight: 700; font-family: 'Space Mono', monospace; }
-
         .card-btns {
           display: flex;
           gap: 7px;
           flex-wrap: wrap;
         }
-
-        /* Access Modal Styles */
         .access-modal-overlay {
           position: fixed;
           inset: 0;
@@ -887,7 +844,6 @@ export default function Admin() {
           justify-content: center;
           animation: overlayIn 0.3s ease both;
         }
-
         .access-modal-panel {
           background: #0c0c0f;
           border: 1px solid #2a2a30;
@@ -898,18 +854,15 @@ export default function Admin() {
           box-shadow: 0 0 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(31,207,177,0.1);
           animation: scaleIn 0.35s cubic-bezier(0.16,1,0.3,1) both;
         }
-
         @keyframes scaleIn {
           from { opacity: 0; transform: scale(0.96); }
           to   { opacity: 1; transform: scale(1); }
         }
-
         .access-modal-icon {
           font-size: 2.5rem;
           text-align: center;
           margin-bottom: 0.75rem;
         }
-
         .access-modal-title {
           font-size: 1.35rem;
           font-weight: 900;
@@ -918,7 +871,6 @@ export default function Admin() {
           color: #fff;
           text-align: center;
         }
-
         .access-modal-desc {
           font-size: 12px;
           color: #666;
@@ -927,7 +879,6 @@ export default function Admin() {
           padding-left: 12px;
           font-weight: 500;
         }
-
         .access-locked {
           display: flex;
           flex-direction: column;
@@ -936,9 +887,7 @@ export default function Admin() {
           padding: 0.5rem 0 0.75rem;
           text-align: center;
         }
-
         .access-locked-icon { font-size: 2.5rem; }
-
         .access-locked-msg {
           color: #888;
           font-size: 13px;
@@ -946,7 +895,6 @@ export default function Admin() {
           line-height: 1.6;
           max-width: 280px;
         }
-
         .btn-access-contact {
           width: 100%;
           padding: 14px;
@@ -967,13 +915,11 @@ export default function Admin() {
           box-shadow: 0 0 20px rgba(37,211,102,0.3);
           margin-top: 0.5rem;
         }
-
         .btn-access-contact:hover {
           background: #20c45e;
           transform: translateY(-2px);
           box-shadow: 0 8px 28px rgba(37,211,102,0.45);
         }
-
         .access-input {
           width: 100%;
           background: #080809;
@@ -988,12 +934,10 @@ export default function Admin() {
           margin-bottom: 10px;
           letter-spacing: 0.1em;
         }
-
         .access-input:focus {
           border-color: #1fcfb1;
           box-shadow: 0 0 0 3px rgba(31,207,177,0.2);
         }
-
         .access-error {
           color: #ef4444;
           font-size: 11px;
@@ -1001,7 +945,6 @@ export default function Admin() {
           margin-bottom: 1rem;
           letter-spacing: 0.02em;
         }
-
         .btn-access-submit {
           width: 100%;
           padding: 14px;
@@ -1021,23 +964,18 @@ export default function Admin() {
           letter-spacing: 0.04em;
           box-shadow: 0 0 20px rgba(31,207,177,0.3);
         }
-
         .btn-access-submit:hover:not(:disabled) {
           background: #26e8ca;
           transform: translateY(-2px);
           box-shadow: 0 8px 28px rgba(31,207,177,0.4);
         }
-
         .btn-access-submit:disabled {
           opacity: 0.5;
           cursor: not-allowed;
         }
-
-        /* Responsive */
         @media (max-width: 900px) {
           .stats-bar { grid-template-columns: 1fr 1fr; }
         }
-
         @media (max-width: 640px) {
           .admin-wrapper { padding: 1.5rem 1rem; }
           .admin-header { flex-direction: column; align-items: flex-start; }
@@ -1065,12 +1003,10 @@ export default function Admin() {
             padding: 1.5rem;
           }
         }
-
         @keyframes slideInUp {
           from { transform: translateY(60px); opacity: 0; }
           to   { transform: translateY(0);    opacity: 1; }
         }
-
         @media (max-width: 420px) {
           .stats-bar { grid-template-columns: 1fr 1fr; }
           .action-btns { flex-wrap: wrap; }
@@ -1080,7 +1016,7 @@ export default function Admin() {
       <div className="admin-wrapper">
         <div className="admin-container">
 
-          {/* ── Header ── */}
+          {/* Header */}
           <div className="admin-header">
             <div className="header-brand">
               <div className="brand-icon">⚙️</div>
@@ -1097,7 +1033,7 @@ export default function Admin() {
             </div>
           </div>
 
-          {/* ── Stats ── */}
+          {/* Stats */}
           <div className="stats-bar">
             {[
               { label: 'Total Offers',  value: offers.length,                                        cls: '' },
@@ -1112,7 +1048,7 @@ export default function Admin() {
             ))}
           </div>
 
-          {/* ── Add Form ── */}
+          {/* Add Form */}
           {showForm && (
             <div className="add-form">
               <div className="form-title">Add New Offer</div>
@@ -1167,12 +1103,28 @@ export default function Admin() {
                 />
               </div>
 
-              {/* HR Contact Section */}
+              {/* HR Assignment & Contact Info */}
               <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid #1e1e24' }}>
-                <div className="form-title" style={{ marginBottom: '1rem' }}>📱 HR Contact Info</div>
+                <div className="form-title" style={{ marginBottom: '1rem' }}>👥 HR Assignment & Contact Info</div>
+                
+                {/* قائمة اختيار HR */}
+                <div className="form-field" style={{ marginBottom: '1rem' }}>
+                  <label>🎯 Assign HR Member (اختر HR لربط العرض به)</label>
+                  <select
+                    value={form.hr_id || ''}
+                    onChange={e => handleHrSelectForAdd(e.target.value ? parseInt(e.target.value) : null)}
+                  >
+                    <option value="">-- None (ادخل البيانات يدوياً) --</option>
+                    {hrTeam.filter(hr => hr.active).map(hr => (
+                      <option key={hr.id} value={hr.id}>{hr.name} - {hr.phone}</option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-white/40 mt-1">اختر HR وسيتم تعبئة حقول التواصل تلقائياً</p>
+                </div>
+
                 <div className="form-grid">
                   <div className="form-field">
-                    <label>💬 WhatsApp (example 201xxxxxxxxx)</label>
+                    <label>💬 WhatsApp</label>
                     <input
                       value={form.contact_whatsapp || ''}
                       placeholder="201xxxxxxxxx"
@@ -1211,7 +1163,7 @@ export default function Admin() {
             </div>
           )}
 
-          {/* ── HR Team Section ── */}
+          {/* HR Team Section (نفس الكود القديم مع إضافة تأثير على العروض عند حذف HR) */}
           <div style={{ background: '#0c0c0f', border: '1px solid #1a1a1e', borderTop: '2px solid #f59e0b', borderRadius: 18, padding: '1.5rem', marginBottom: '2rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showHrSection ? '1.5rem' : 0 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -1231,7 +1183,6 @@ export default function Admin() {
 
             {showHrSection && (
               <>
-                {/* Add HR Form */}
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 10, marginBottom: '1.5rem' }}>
                   <div className="form-field" style={{ margin: 0 }}>
                     <label>👤 Name</label>
@@ -1252,7 +1203,6 @@ export default function Admin() {
                   </div>
                 </div>
 
-                {/* HR List */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                   {hrTeam.length === 0 && <p style={{ color: '#333', fontSize: 13 }}>No HR members yet.</p>}
                   {hrTeam.map(hr => (
@@ -1278,7 +1228,7 @@ export default function Admin() {
             )}
           </div>
 
-          {/* ── Filter Tabs ── */}
+          {/* Filter Tabs */}
           <div style={{ display: 'flex', gap: 8, marginBottom: '1rem', flexWrap: 'wrap' }}>
             {(['all', 'Active', 'Hold', 'Inactive'] as const).map(tab => (
               <button
@@ -1303,7 +1253,7 @@ export default function Admin() {
             ))}
           </div>
 
-          {/* ── Search ── */}
+          {/* Search */}
           <div className="search-wrap">
             <span className="search-icon">🔍</span>
             <input
@@ -1314,7 +1264,7 @@ export default function Admin() {
             />
           </div>
 
-          {/* ── Desktop Table ── */}
+          {/* Desktop Table */}
           <div className="table-wrap">
             {loading ? (
               <div className="loading-shimmer">
@@ -1371,7 +1321,7 @@ export default function Admin() {
             )}
           </div>
 
-          {/* ── Mobile Cards ── */}
+          {/* Mobile Cards */}
           <div className="mobile-cards">
             {loading ? (
               [...Array(4)].map((_, i) => <div key={i} className="shimmer-row" style={{ borderRadius: 14, height: 100 }} />)
@@ -1408,11 +1358,10 @@ export default function Admin() {
               );
             })}
           </div>
-
         </div>
       </div>
 
-      {/* ── Edit Modal ── */}
+      {/* Edit Modal */}
       {editOffer && (
         <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) closeEdit(); }}>
           <div className="modal-panel">
@@ -1478,25 +1427,40 @@ export default function Admin() {
               />
             </div>
 
-            {/* HR Contact in Edit */}
+            {/* HR Assignment & Contact Info in Edit */}
             <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid #1e1e24' }}>
-              <div className="form-title" style={{ marginBottom: '1rem' }}>📱 HR Contact Info</div>
+              <div className="form-title" style={{ marginBottom: '1rem' }}>👥 HR Assignment & Contact Info</div>
+              
+              <div className="form-field" style={{ marginBottom: '1rem' }}>
+                <label>🎯 Assign HR Member</label>
+                <select
+                  value={editForm.hr_id || ''}
+                  onChange={e => handleHrSelectForEdit(e.target.value ? parseInt(e.target.value) : null)}
+                >
+                  <option value="">-- None (manual entry) --</option>
+                  {hrTeam.filter(hr => hr.active).map(hr => (
+                    <option key={hr.id} value={hr.id}>{hr.name} - {hr.phone}</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-white/40 mt-1">اختر HR لتعبئة حقول التواصل تلقائياً</p>
+              </div>
+
               <div className="modal-form-grid">
                 <div className="form-field">
                   <label>💬 WhatsApp</label>
-                  <input value={(editForm as any).contact_whatsapp || ''} placeholder="201xxxxxxxxx" onChange={e => setEditForm({ ...editForm, contact_whatsapp: e.target.value } as any)} />
+                  <input value={editForm.contact_whatsapp || ''} placeholder="201xxxxxxxxx" onChange={e => setEditForm({ ...editForm, contact_whatsapp: e.target.value })} />
                 </div>
                 <div className="form-field">
                   <label>📞 Phone</label>
-                  <input value={(editForm as any).contact_phone || ''} placeholder="01xxxxxxxxx" onChange={e => setEditForm({ ...editForm, contact_phone: e.target.value } as any)} />
+                  <input value={editForm.contact_phone || ''} placeholder="01xxxxxxxxx" onChange={e => setEditForm({ ...editForm, contact_phone: e.target.value })} />
                 </div>
                 <div className="form-field">
                   <label>✉️ Email</label>
-                  <input value={(editForm as any).contact_email || ''} placeholder="hr@company.com" onChange={e => setEditForm({ ...editForm, contact_email: e.target.value } as any)} />
+                  <input value={editForm.contact_email || ''} placeholder="hr@company.com" onChange={e => setEditForm({ ...editForm, contact_email: e.target.value })} />
                 </div>
                 <div className="form-field">
                   <label>💡 ملاحظة</label>
-                  <input value={(editForm as any).contact_note || ''} placeholder="ابعت رسالة على واتساب بس" onChange={e => setEditForm({ ...editForm, contact_note: e.target.value } as any)} />
+                  <input value={editForm.contact_note || ''} placeholder="ابعت رسالة على واتساب بس" onChange={e => setEditForm({ ...editForm, contact_note: e.target.value })} />
                 </div>
               </div>
             </div>
@@ -1511,7 +1475,7 @@ export default function Admin() {
         </div>
       )}
 
-      {/* ── Password Gate Modal ── */}
+      {/* Password Gate Modal */}
       {accessModalOpen && (
         <div className="access-modal-overlay">
           <div className="access-modal-panel">
@@ -1520,7 +1484,6 @@ export default function Admin() {
             <div className="access-modal-desc">
               Enter the password to continue.
             </div>
-
             {!pwLocked ? (
               <form onSubmit={handlePasswordSubmit}>
                 <input
