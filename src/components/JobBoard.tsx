@@ -35,13 +35,6 @@ interface Job {
   contactEmail: string;
   contactNote: string;
   sort_order?: number;
-  hr_id: number | null;
-  hr?: {
-    id: number;
-    name: string;
-    phone: string;
-    active: boolean;
-  } | null;
   matchScore?: number;
 }
 
@@ -86,8 +79,6 @@ export default function JobBoard() {
 
   const isFormIncomplete = useMemo(() => {
     return (
-      profile.name === '' ||
-      profile.mobile === '' ||
       profile.age === '' ||
       profile.status === '' ||
       profile.english === '' ||
@@ -104,11 +95,11 @@ export default function JobBoard() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 4;
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
-  const [applyStep, setApplyStep] = useState<'initial' | 'hr-selection' | 'success'>('initial');
+  const [applyStep, setApplyStep] = useState<'initial' | 'success'>('initial');
   const [copied, setCopied] = useState(false);
   const [locationCopied, setLocationCopied] = useState(false);
 
-  // جلب العروض مع بيانات HR المرتبطة
+  // جلب العروض
   useEffect(() => {
     const fetchJobs = async () => {
       setLoading(true);
@@ -129,30 +120,8 @@ export default function JobBoard() {
           return;
         }
 
-        // استخراج المعرفات الفريدة لـ hr_id من العروض (غير null)
-        const hrIds = [...new Set(offers.map(offer => offer.hr_id).filter(id => id !== null))];
-
-        let hrMap = new Map();
-        if (hrIds.length > 0) {
-          const { data: hrTeam, error: hrError } = await supabase
-            .from('hr_team')
-            .select('*')
-            .in('id', hrIds);
-          if (hrError) throw hrError;
-          if (hrTeam) {
-            hrTeam.forEach(hr => hrMap.set(hr.id, hr));
-          }
-        }
-
-        // تحويل البيانات إلى واجهة Job مع دمج بيانات التواصل
+        // تحويل البيانات إلى واجهة Job
         const mapped: Job[] = offers.map((offer: any) => {
-          const linkedHr = offer.hr_id ? hrMap.get(offer.hr_id) : null;
-          // تحديد بيانات التواصل: إذا كان هناك hr مرتبط نستخدم رقمه، وإلا نستخدم الحقول اليدوية من العرض
-          const whatsapp = linkedHr ? linkedHr.phone : (offer.contact_whatsapp || '');
-          const phone = linkedHr ? linkedHr.phone : (offer.contact_phone || '');
-          const email = offer.contact_email || '';
-          const note = linkedHr ? `تواصل مع ${linkedHr.name} على واتساب` : (offer.contact_note || '');
-          
           return {
             id: offer.id,
             status: offer.status,
@@ -172,12 +141,10 @@ export default function JobBoard() {
             details: offer.details,
             locationType: offer.location_type,
             targetLanguage: offer.target_language,
-            contactWhatsapp: whatsapp,
-            contactPhone: phone,
-            contactEmail: email,
-            contactNote: note,
-            hr_id: offer.hr_id,
-            hr: linkedHr,
+            contactWhatsapp: offer.contact_whatsapp || '',
+            contactPhone: offer.contact_phone || '',
+            contactEmail: offer.contact_email || '',
+            contactNote: offer.contact_note || '',
           };
         });
 
@@ -292,21 +259,6 @@ export default function JobBoard() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleApplyToHr = (hrPhone: string) => {
-    if (!selectedJob) return;
-
-    const message = `Hi,
-I want to apply in this offer - ${selectedJob.company} (${selectedJob.account}) - and this my Data:
-🎓 Graduation: ${profile.status}
-🌐 English Level: ${profile.english}
-💼 Experience: ${profile.experience} ${profile.experienceType ? `(${profile.experienceType})` : ''}
-📱 Mobile Number: ${profile.mobile}
-👤 Name: ${profile.name}`;
-
-    const whatsappUrl = `https://wa.me/${hrPhone}?text=${encodeURIComponent(message)}`;
-    window.open(whatsappUrl, '_blank');
-    setApplyStep('success');
-  };
 
   const resetModal = () => {
     setSelectedJob(null);
@@ -336,32 +288,8 @@ I want to apply in this offer - ${selectedJob.company} (${selectedJob.account}) 
             </div>
 
             <form onSubmit={handleSearch} className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-wider text-white/40 ml-1 flex items-center gap-2">
-                  <UserCog className="w-3 h-3" /> Full Name
-                </label>
-                <input 
-                  type="text" 
-                  value={profile.name}
-                  placeholder="Please enter your full name"
-                  onChange={e => setProfile({...profile, name: e.target.value})}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 focus:border-brand/50 focus:ring-1 focus:ring-brand/50 outline-none transition-all font-medium"
-                />
-              </div>
 
-              <div className="space-y-2">
-                <label className="text-xs font-bold uppercase tracking-wider text-white/40 ml-1 flex items-center gap-2">
-                  <Globe className="w-3 h-3" /> Mobile Number
-                </label>
-                <input 
-                  type="tel" 
-                  value={profile.mobile}
-                  placeholder="Please enter your mobile number"
-                  onChange={e => setProfile({...profile, mobile: e.target.value})}
-                  className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 focus:border-brand/50 focus:ring-1 focus:ring-brand/50 outline-none transition-all font-medium"
-                />
-              </div>
-
+              
               <div className="space-y-2">
                 <label className="text-xs font-bold uppercase tracking-wider text-white/40 ml-1 flex items-center gap-2">
                   <Clock className="w-3 h-3" /> Age
@@ -743,109 +671,7 @@ I want to apply in this offer - ${selectedJob.company} (${selectedJob.account}) 
                     </div>
                   </div>
 
-                  {applyStep === 'initial' ? (
-                    <motion.div 
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="mt-8 mb-4 flex justify-center"
-                    >
-                      <button 
-                        onClick={() => setApplyStep('hr-selection')}
-                        className="cta"
-                      >
-                        <span className="hover-underline-animation"> APPLY FOR THIS POSITION </span>
-                        <svg
-                          id="arrow-horizontal"
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="30"
-                          height="10"
-                          viewBox="0 0 46 16"
-                        >
-                          <path
-                            id="Path_10"
-                            data-name="Path 10"
-                            d="M8,0,6.545,1.455l5.506,5.506H-30V9.039H12.052L6.545,14.545,8,16l8-8Z"
-                            transform="translate(30)"
-                          ></path>
-                        </svg>
-                      </button>
-                    </motion.div>
-                  ) : applyStep === 'hr-selection' ? (
-                    <motion.div 
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="mt-6 md:mt-8 p-6 md:p-12 rounded-2xl md:rounded-[3.5rem] glass border-white/5 bg-gradient-to-br from-brand/5 via-transparent to-transparent flex flex-col items-center"
-                    >
-                      <div className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.4em] md:tracking-[0.6em] mb-8 text-white/20">
-                        Contact HR
-                      </div>
-
-                      <div className="w-full max-w-sm flex flex-col gap-3">
-                        {selectedJob.contactWhatsapp && (
-                          <a
-                            href={`https://wa.me/${selectedJob.contactWhatsapp}`}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="w-full p-5 md:p-6 rounded-xl md:rounded-2xl bg-[#25D366]/10 border border-[#25D366]/30 hover:bg-[#25D366]/20 transition-all flex items-center gap-4 group"
-                          >
-                            <div className="w-10 h-10 rounded-xl bg-[#25D366]/20 flex items-center justify-center text-[#25D366] text-lg shrink-0">💬</div>
-                            <div className="text-left">
-                              <p className="text-[10px] font-black uppercase tracking-widest text-[#25D366]/70">WhatsApp</p>
-                              <p className="font-bold text-white text-sm">{selectedJob.contactWhatsapp}</p>
-                            </div>
-                            <ChevronRight className="w-4 h-4 text-[#25D366] ml-auto" />
-                          </a>
-                        )}
-
-                        {selectedJob.contactPhone && (
-                          <a
-                            href={`tel:${selectedJob.contactPhone}`}
-                            className="w-full p-5 md:p-6 rounded-xl md:rounded-2xl bg-white/5 border border-white/10 hover:border-brand/40 hover:bg-brand/5 transition-all flex items-center gap-4 group"
-                          >
-                            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-brand text-lg shrink-0">📞</div>
-                            <div className="text-left">
-                              <p className="text-[10px] font-black uppercase tracking-widest text-white/40">Phone</p>
-                              <p className="font-bold text-white text-sm">{selectedJob.contactPhone}</p>
-                            </div>
-                            <ChevronRight className="w-4 h-4 text-brand ml-auto" />
-                          </a>
-                        )}
-
-                        {selectedJob.contactEmail && (
-                          <a
-                            href={`mailto:${selectedJob.contactEmail}`}
-                            className="w-full p-5 md:p-6 rounded-xl md:rounded-2xl bg-white/5 border border-white/10 hover:border-brand/40 hover:bg-brand/5 transition-all flex items-center gap-4 group"
-                          >
-                            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-brand text-lg shrink-0">✉️</div>
-                            <div className="text-left">
-                              <p className="text-[10px] font-black uppercase tracking-widest text-white/40">Email</p>
-                              <p className="font-bold text-white text-sm">{selectedJob.contactEmail}</p>
-                            </div>
-                            <ChevronRight className="w-4 h-4 text-brand ml-auto" />
-                          </a>
-                        )}
-
-                        {selectedJob.contactNote && (
-                          <div className="w-full p-4 md:p-5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-3">
-                            <span className="text-amber-400 text-base shrink-0 mt-0.5">💡</span>
-                            <p className="text-amber-300/80 text-xs font-medium leading-relaxed">{selectedJob.contactNote}</p>
-                          </div>
-                        )}
-
-                        {!selectedJob.contactWhatsapp && !selectedJob.contactPhone && !selectedJob.contactEmail && (
-                          <p className="text-white/30 text-sm text-center py-4">No contact info available for this offer yet.</p>
-                        )}
-                      </div>
-
-                      <button 
-                        onClick={() => setApplyStep('initial')}
-                        className="mt-8 text-[9px] md:text-[10px] font-black text-white/10 hover:text-white transition-colors uppercase tracking-[0.5em] border-b border-transparent hover:border-white/10 pb-1"
-                      >
-                        Back
-                      </button>
-                    </motion.div>
-                  ) : (
-                    <motion.div 
+                                      <motion.div 
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
                       className="mt-8 p-8 md:p-12 rounded-2xl md:rounded-3xl glass border-brand/20 bg-brand/10 text-center"
@@ -854,7 +680,7 @@ I want to apply in this offer - ${selectedJob.company} (${selectedJob.account}) 
                         <Check className="w-6 h-6 md:w-10 md:h-10 text-background" />
                       </div>
                       <h4 className="text-xl md:text-2xl font-black italic mb-2 tracking-tight">APPLICATION SENT!</h4>
-                      <p className="text-white/60 mb-6 md:mb-8 max-w-xs mx-auto text-[13px] md:text-sm">You have been redirected to WhatsApp to complete your application with the HR team.</p>
+                      <p className="text-white/60 mb-6 md:mb-8 max-w-xs mx-auto text-[13px] md:text-sm">Application submitted successfully!</p>
                       <button 
                         onClick={resetModal}
                         className="px-6 py-2.5 md:px-8 md:py-3 rounded-xl border border-brand/30 text-brand font-bold text-[10px] md:text-xs uppercase tracking-widest hover:bg-brand hover:text-background transition-all"

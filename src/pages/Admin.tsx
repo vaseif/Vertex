@@ -25,7 +25,6 @@ interface Offer {
   contact_email: string;
   contact_note: string;
   sort_order: number;
-  hr_id: number | null; // NEW: ربط مع hr_team
 }
 
 const empty: Omit<Offer, 'id'> = {
@@ -51,7 +50,6 @@ const empty: Omit<Offer, 'id'> = {
   contact_email: '',
   contact_note: '',
   sort_order: 0,
-  hr_id: null,
 };
 
 export default function Admin() {
@@ -66,44 +64,6 @@ export default function Admin() {
   const [updating, setUpdating] = useState(false);
   const [rowAnim, setRowAnim] = useState(false);
   const [filterTab, setFilterTab] = useState<'all' | 'Active' | 'Hold' | 'Inactive'>('all');
-
-  // HR Team
-  const [hrTeam, setHrTeam] = useState<{id: number; name: string; phone: string; active: boolean}[]>([]);
-  const [hrForm, setHrForm] = useState({ name: '', phone: '' });
-  const [hrSaving, setHrSaving] = useState(false);
-  const [showHrSection, setShowHrSection] = useState(false);
-
-  // جلب HR Team
-  useEffect(() => {
-    const fetchHr = async () => {
-      const { data } = await supabase.from('hr_team').select('*').order('id', { ascending: true });
-      setHrTeam(data || []);
-    };
-    fetchHr();
-  }, []);
-
-  const addHr = async () => {
-    if (!hrForm.name || !hrForm.phone) return alert('Name and Number is required!');
-    setHrSaving(true);
-    const { data } = await supabase.from('hr_team').insert([hrForm]).select();
-    if (data) setHrTeam(prev => [...prev, data[0]]);
-    setHrForm({ name: '', phone: '' });
-    setHrSaving(false);
-  };
-
-  const deleteHr = async (id: number) => {
-    if (!confirm('Delete this HR contract?')) return;
-    await supabase.from('hr_team').delete().eq('id', id);
-    setHrTeam(prev => prev.filter(h => h.id !== id));
-    // يمكن أيضاً تحديث العروض التي كانت مرتبطة بهذا الـ HR (تعيين hr_id = null)
-    await supabase.from('offers').update({ hr_id: null }).eq('hr_id', id);
-    setOffers(prev => prev.map(o => o.hr_id === id ? { ...o, hr_id: null } : o));
-  };
-
-  const toggleHr = async (id: number, current: boolean) => {
-    await supabase.from('hr_team').update({ active: !current }).eq('id', id);
-    setHrTeam(prev => prev.map(h => h.id === id ? { ...h, active: !current } : h));
-  };
 
   // Password gate state (نفس الكود القديم)
   const [accessModalOpen, setAccessModalOpen] = useState(true);
@@ -143,44 +103,6 @@ export default function Admin() {
     const updated = list.map((o, i) => ({ ...o, sort_order: i }));
     setOffers(updated);
     await Promise.all(updated.map(o => supabase.from('offers').update({ sort_order: o.sort_order }).eq('id', o.id)));
-  };
-
-  // دالة لتعبئة حقول التواصل من HR المختار (للإضافة)
-  const handleHrSelectForAdd = (hrId: number | null) => {
-    if (hrId === null) {
-      setForm(prev => ({ ...prev, hr_id: null, contact_whatsapp: '', contact_phone: '', contact_email: '', contact_note: '' }));
-      return;
-    }
-    const selected = hrTeam.find(h => h.id === hrId);
-    if (selected) {
-      setForm(prev => ({
-        ...prev,
-        hr_id: hrId,
-        contact_whatsapp: selected.phone,
-        contact_phone: selected.phone,
-        contact_email: '',
-        contact_note: `تواصل مع ${selected.name} على واتساب`,
-      }));
-    }
-  };
-
-  // للتعديل
-  const handleHrSelectForEdit = (hrId: number | null) => {
-    if (hrId === null) {
-      setEditForm(prev => ({ ...prev, hr_id: null, contact_whatsapp: '', contact_phone: '', contact_email: '', contact_note: '' }));
-      return;
-    }
-    const selected = hrTeam.find(h => h.id === hrId);
-    if (selected) {
-      setEditForm(prev => ({
-        ...prev,
-        hr_id: hrId,
-        contact_whatsapp: selected.phone,
-        contact_phone: selected.phone,
-        contact_email: '',
-        contact_note: `تواصل مع ${selected.name} على واتساب`,
-      }));
-    }
   };
 
   const handleSave = async () => {
@@ -1103,130 +1025,11 @@ export default function Admin() {
                 />
               </div>
 
-              {/* HR Assignment & Contact Info */}
-              <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid #1e1e24' }}>
-                <div className="form-title" style={{ marginBottom: '1rem' }}>👥 HR Assignment & Contact Info</div>
-                
-                {/* قائمة اختيار HR */}
-                <div className="form-field" style={{ marginBottom: '1rem' }}>
-                  <label>🎯 Assign HR Member (اختر HR لربط العرض به)</label>
-                  <select
-                    value={form.hr_id || ''}
-                    onChange={e => handleHrSelectForAdd(e.target.value ? parseInt(e.target.value) : null)}
-                  >
-                    <option value="">-- None (ادخل البيانات يدوياً) --</option>
-                    {hrTeam.filter(hr => hr.active).map(hr => (
-                      <option key={hr.id} value={hr.id}>{hr.name} - {hr.phone}</option>
-                    ))}
-                  </select>
-                  <p className="text-[10px] text-white/40 mt-1">اختر HR وسيتم تعبئة حقول التواصل تلقائياً</p>
-                </div>
-
-                <div className="form-grid">
-                  <div className="form-field">
-                    <label>💬 WhatsApp</label>
-                    <input
-                      value={form.contact_whatsapp || ''}
-                      placeholder="201xxxxxxxxx"
-                      onChange={e => setForm({ ...form, contact_whatsapp: e.target.value })}
-                    />
-                  </div>
-                  <div className="form-field">
-                    <label>📞 Phone</label>
-                    <input
-                      value={form.contact_phone || ''}
-                      placeholder="01xxxxxxxxx"
-                      onChange={e => setForm({ ...form, contact_phone: e.target.value })}
-                    />
-                  </div>
-                  <div className="form-field">
-                    <label>✉️ Email</label>
-                    <input
-                      value={form.contact_email || ''}
-                      placeholder="hr@company.com"
-                      onChange={e => setForm({ ...form, contact_email: e.target.value })}
-                    />
-                  </div>
-                  <div className="form-field">
-                    <label>💡 ملاحظة التواصل</label>
-                    <input
-                      value={form.contact_note || ''}
-                      placeholder="مثلاً: ابعت رسالة على واتساب بس"
-                      onChange={e => setForm({ ...form, contact_note: e.target.value })}
-                    />
-                  </div>
-                </div>
-              </div>
               <button className="btn-save" onClick={handleSave} disabled={saving}>
                 {saving ? 'Saving…' : 'Save Offer'}
               </button>
             </div>
           )}
-
-          {/* HR Team Section (نفس الكود القديم مع إضافة تأثير على العروض عند حذف HR) */}
-          <div style={{ background: '#0c0c0f', border: '1px solid #1a1a1e', borderTop: '2px solid #f59e0b', borderRadius: 18, padding: '1.5rem', marginBottom: '2rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showHrSection ? '1.5rem' : 0 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 20 }}>👥</span>
-                <div>
-                  <div style={{ fontWeight: 800, fontSize: 14, color: '#f59e0b', letterSpacing: '0.05em' }}>HR TEAM</div>
-                  <div style={{ fontSize: 11, color: '#444', marginTop: 2 }}>{hrTeam.filter(h => h.active).length} active members</div>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowHrSection(!showHrSection)}
-                style={{ padding: '7px 16px', borderRadius: 10, border: '1px solid #f59e0b40', background: 'rgba(245,158,11,0.1)', color: '#f59e0b', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'Syne, sans-serif' }}
-              >
-                {showHrSection ? '✕ Close' : '+ Manage HR'}
-              </button>
-            </div>
-
-            {showHrSection && (
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 10, marginBottom: '1.5rem' }}>
-                  <div className="form-field" style={{ margin: 0 }}>
-                    <label>👤 Name</label>
-                    <input value={hrForm.name} placeholder="HR. Ahmed Mohamed" onChange={e => setHrForm({ ...hrForm, name: e.target.value })} />
-                  </div>
-                  <div className="form-field" style={{ margin: 0 }}>
-                    <label>📱 WhatsApp Number (مثلاً 201xxxxxxxxx)</label>
-                    <input value={hrForm.phone} placeholder="201xxxxxxxxx" onChange={e => setHrForm({ ...hrForm, phone: e.target.value })} />
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'flex-end' }}>
-                    <button
-                      onClick={addHr}
-                      disabled={hrSaving}
-                      style={{ padding: '11px 20px', borderRadius: 10, background: '#f59e0b', color: '#000', fontWeight: 800, border: 'none', cursor: 'pointer', fontSize: 13, fontFamily: 'Syne, sans-serif', whiteSpace: 'nowrap' }}
-                    >
-                      {hrSaving ? '...' : '+ Add'}
-                    </button>
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {hrTeam.length === 0 && <p style={{ color: '#333', fontSize: 13 }}>No HR members yet.</p>}
-                  {hrTeam.map(hr => (
-                    <div key={hr.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 12, background: hr.active ? 'rgba(245,158,11,0.07)' : '#0a0a0c', border: `1px solid ${hr.active ? 'rgba(245,158,11,0.2)' : '#1a1a1e'}` }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <div style={{ width: 36, height: 36, borderRadius: 10, background: hr.active ? 'rgba(245,158,11,0.15)' : '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>👤</div>
-                        <div>
-                          <div style={{ fontWeight: 700, fontSize: 14, color: hr.active ? '#e8e8ec' : '#444' }}>{hr.name}</div>
-                          <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>+{hr.phone}</div>
-                        </div>
-                      </div>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <a href={`https://wa.me/${hr.phone}`} target="_blank" rel="noreferrer" style={{ padding: '6px 12px', borderRadius: 8, background: 'rgba(37,211,102,0.1)', border: '1px solid rgba(37,211,102,0.2)', color: '#25d366', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>💬 Test</a>
-                        <button onClick={() => toggleHr(hr.id, hr.active)} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #222', background: 'transparent', color: hr.active ? '#f59e0b' : '#555', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: 'Syne, sans-serif' }}>
-                          {hr.active ? '⏸ Disable' : '▶ Enable'}
-                        </button>
-                        <button onClick={() => deleteHr(hr.id)} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(239,68,68,0.2)', background: 'transparent', color: '#ef4444', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: 'Syne, sans-serif' }}>🗑</button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
 
           {/* Filter Tabs */}
           <div style={{ display: 'flex', gap: 8, marginBottom: '1rem', flexWrap: 'wrap' }}>
@@ -1425,44 +1228,6 @@ export default function Admin() {
                 rows={5}
                 style={{ resize: 'vertical' }}
               />
-            </div>
-
-            {/* HR Assignment & Contact Info in Edit */}
-            <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid #1e1e24' }}>
-              <div className="form-title" style={{ marginBottom: '1rem' }}>👥 HR Assignment & Contact Info</div>
-              
-              <div className="form-field" style={{ marginBottom: '1rem' }}>
-                <label>🎯 Assign HR Member</label>
-                <select
-                  value={editForm.hr_id || ''}
-                  onChange={e => handleHrSelectForEdit(e.target.value ? parseInt(e.target.value) : null)}
-                >
-                  <option value="">-- None (manual entry) --</option>
-                  {hrTeam.filter(hr => hr.active).map(hr => (
-                    <option key={hr.id} value={hr.id}>{hr.name} - {hr.phone}</option>
-                  ))}
-                </select>
-                <p className="text-[10px] text-white/40 mt-1">اختر HR لتعبئة حقول التواصل تلقائياً</p>
-              </div>
-
-              <div className="modal-form-grid">
-                <div className="form-field">
-                  <label>💬 WhatsApp</label>
-                  <input value={editForm.contact_whatsapp || ''} placeholder="201xxxxxxxxx" onChange={e => setEditForm({ ...editForm, contact_whatsapp: e.target.value })} />
-                </div>
-                <div className="form-field">
-                  <label>📞 Phone</label>
-                  <input value={editForm.contact_phone || ''} placeholder="01xxxxxxxxx" onChange={e => setEditForm({ ...editForm, contact_phone: e.target.value })} />
-                </div>
-                <div className="form-field">
-                  <label>✉️ Email</label>
-                  <input value={editForm.contact_email || ''} placeholder="hr@company.com" onChange={e => setEditForm({ ...editForm, contact_email: e.target.value })} />
-                </div>
-                <div className="form-field">
-                  <label>💡 ملاحظة</label>
-                  <input value={editForm.contact_note || ''} placeholder="ابعت رسالة على واتساب بس" onChange={e => setEditForm({ ...editForm, contact_note: e.target.value })} />
-                </div>
-              </div>
             </div>
 
             <div className="modal-actions">
