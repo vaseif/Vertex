@@ -109,6 +109,10 @@ export default function JobBoard() {
           details: item.details,
           locationType: item.location_type,
           targetLanguage: item.target_language,
+          contactWhatsapp: item.contact_whatsapp || '',
+          contactPhone: item.contact_phone || '',
+          contactEmail: item.contact_email || '',
+          contactNote: item.contact_note || '',
         }));
         setAllJobs(mapped);
       }
@@ -700,40 +704,72 @@ I want to apply in this offer - ${selectedJob.company} (${selectedJob.account}) 
                       animate={{ opacity: 1, scale: 1 }}
                       className="mt-6 md:mt-8 p-6 md:p-12 rounded-2xl md:rounded-[3.5rem] glass border-white/5 bg-gradient-to-br from-brand/5 via-transparent to-transparent flex flex-col items-center"
                     >
-                      <div className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.4em] md:tracking-[0.6em] mb-8 md:mb-12 text-white/20">
-                        Choose Representative
+                      <div className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.4em] md:tracking-[0.6em] mb-8 text-white/20">
+                        Contact HR
                       </div>
-                      <div className="w-full max-w-sm">
-                        {HR_TEAM.map(hr => (
-                          <button
-                            key={hr.id}
-                            onClick={() => handleApplyToHr(hr.phone)}
-                            className="w-full p-6 md:p-10 rounded-xl md:rounded-[2rem] bg-white/[0.03] border border-white/10 hover:border-brand/40 hover:bg-brand/[0.03] transition-all flex items-center justify-between group relative overflow-hidden"
+
+                      <div className="w-full max-w-sm flex flex-col gap-3">
+                        {(selectedJob as any).contactWhatsapp && (
+                          <a
+                            href={`https://wa.me/${(selectedJob as any).contactWhatsapp}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="w-full p-5 md:p-6 rounded-xl md:rounded-2xl bg-[#25D366]/10 border border-[#25D366]/30 hover:bg-[#25D366]/20 transition-all flex items-center gap-4 group"
                           >
-                            <div className="absolute inset-0 bg-gradient-to-tr from-brand/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                            <div className="flex items-center gap-4 md:gap-7 relative z-10">
-                              <div className="w-10 h-10 md:w-16 md:h-16 rounded-xl md:rounded-3xl bg-white/5 flex items-center justify-center text-[9px] md:text-[11px] font-black tracking-widest border border-white/10 group-hover:border-brand/30 group-hover:text-brand transition-all">
-                                HR
-                              </div>
-                              <div className="text-left">
-                                <span className="block font-black italic text-lg md:text-2xl tracking-tighter text-white group-hover:text-brand transition-colors">{hr.name}</span>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <div className="w-1 md:w-1.5 h-1 md:h-1.5 rounded-full bg-brand shadow-[0_0_10px_#1fcfb1]" />
-                                  <span className="text-[7px] md:text-[9px] font-bold text-white/40 uppercase tracking-[0.2em]">Ready to assist</span>
-                                </div>
-                              </div>
+                            <div className="w-10 h-10 rounded-xl bg-[#25D366]/20 flex items-center justify-center text-[#25D366] text-lg shrink-0">💬</div>
+                            <div className="text-left">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-[#25D366]/70">WhatsApp</p>
+                              <p className="font-bold text-white text-sm">{(selectedJob as any).contactWhatsapp}</p>
                             </div>
-                            <div className="relative z-10 w-9 h-9 md:w-12 md:h-12 rounded-full bg-white/5 flex items-center justify-center border border-white/10 group-hover:bg-brand group-hover:text-background group-hover:scale-110 transition-all shadow-xl">
-                              <ChevronRight className="w-4 h-4 md:w-6 md:h-6" />
+                            <ChevronRight className="w-4 h-4 text-[#25D366] ml-auto" />
+                          </a>
+                        )}
+
+                        {(selectedJob as any).contactPhone && (
+                          <a
+                            href={`tel:${(selectedJob as any).contactPhone}`}
+                            className="w-full p-5 md:p-6 rounded-xl md:rounded-2xl bg-white/5 border border-white/10 hover:border-brand/40 hover:bg-brand/5 transition-all flex items-center gap-4 group"
+                          >
+                            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-brand text-lg shrink-0">📞</div>
+                            <div className="text-left">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-white/40">Phone</p>
+                              <p className="font-bold text-white text-sm">{(selectedJob as any).contactPhone}</p>
                             </div>
-                          </button>
-                        ))}
+                            <ChevronRight className="w-4 h-4 text-brand ml-auto" />
+                          </a>
+                        )}
+
+                        {(selectedJob as any).contactEmail && (
+                          <a
+                            href={`mailto:${(selectedJob as any).contactEmail}`}
+                            className="w-full p-5 md:p-6 rounded-xl md:rounded-2xl bg-white/5 border border-white/10 hover:border-brand/40 hover:bg-brand/5 transition-all flex items-center gap-4 group"
+                          >
+                            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-brand text-lg shrink-0">✉️</div>
+                            <div className="text-left">
+                              <p className="text-[10px] font-black uppercase tracking-widest text-white/40">Email</p>
+                              <p className="font-bold text-white text-sm">{(selectedJob as any).contactEmail}</p>
+                            </div>
+                            <ChevronRight className="w-4 h-4 text-brand ml-auto" />
+                          </a>
+                        )}
+
+                        {(selectedJob as any).contactNote && (
+                          <div className="w-full p-4 md:p-5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-3">
+                            <span className="text-amber-400 text-base shrink-0 mt-0.5">💡</span>
+                            <p className="text-amber-300/80 text-xs font-medium leading-relaxed">{(selectedJob as any).contactNote}</p>
+                          </div>
+                        )}
+
+                        {!(selectedJob as any).contactWhatsapp && !(selectedJob as any).contactPhone && !(selectedJob as any).contactEmail && (
+                          <p className="text-white/30 text-sm text-center py-4">No contact info available for this offer yet.</p>
+                        )}
                       </div>
+
                       <button 
                         onClick={() => setApplyStep('initial')}
                         className="mt-8 text-[9px] md:text-[10px] font-black text-white/10 hover:text-white transition-colors uppercase tracking-[0.5em] border-b border-transparent hover:border-white/10 pb-1"
                       >
-                        Cancel
+                        Back
                       </button>
                     </motion.div>
                   ) : (

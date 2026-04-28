@@ -20,6 +20,10 @@ interface Offer {
   details: string;
   location_type: string;
   target_language: string;
+  contact_whatsapp: string;
+  contact_phone: string;
+  contact_email: string;
+  contact_note: string;
 }
 
 const empty: Omit<Offer, 'id'> = {
@@ -40,6 +44,10 @@ const empty: Omit<Offer, 'id'> = {
   details: '',
   location_type: 'office',
   target_language: 'english',
+  contact_whatsapp: '',
+  contact_phone: '',
+  contact_email: '',
+  contact_note: '',
 };
 
 export default function Admin() {
@@ -159,6 +167,10 @@ export default function Admin() {
     ['graduation','Graduation'], ['nationality','Nationality'],
     ['language','Language'], ['training','Training'],
     ['process','Process'],
+    ['contact_whatsapp','📱 WhatsApp HR (رقم بالكود مثلاً 201xxxxxxxx)'],
+    ['contact_phone','📞 Phone HR'],
+    ['contact_email','✉️ Email HR'],
+    ['contact_note','💬 ملاحظة التواصل (مثلاً: ابعت رسالة على واتساب بس)'],
   ];
 
   return (
