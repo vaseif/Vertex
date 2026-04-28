@@ -5,10 +5,14 @@ import {
   ChevronRight, RefreshCw, X,
   GraduationCap, Globe, Clock, DollarSign,
   CheckCircle2, AlertCircle, Copy, Check,
-  Languages, Zap
+  Languages, Zap, Send
 } from 'lucide-react';
 import { Job, UserProfile } from '../types';
 import { supabase } from '../lib/supabase';
+
+const HR_TEAM = [
+  { id: 4, name: 'HR. Ziad Ramadan', phone: '201226979820' },
+];
 
 const languageLevels: Record<string, number> = {
   'A2': 0, 'B1': 1, 'B1+': 2, 'B2': 3, 'B2+': 4, 'C1': 5, 'C2': 6
@@ -69,7 +73,7 @@ export default function JobBoard() {
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 4;
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
-  const [applyStep, setApplyStep] = useState<'initial' | 'quick' | 'success'>('initial');
+  const [applyStep, setApplyStep] = useState<'initial' | 'hr-selection' | 'success'>('initial');
   const [copied, setCopied] = useState(false);
   const [locationCopied, setLocationCopied] = useState(false);
 
@@ -210,6 +214,22 @@ export default function JobBoard() {
     navigator.clipboard.writeText(selectedJob.details);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleApplyToHr = (hrPhone: string) => {
+    if (!selectedJob) return;
+
+    const message = `Hi,
+I want to apply in this offer - ${selectedJob.company} (${selectedJob.account}) - and this my Data:
+🎓 Graduation: ${profile.status}
+🌐 English Level: ${profile.english}
+💼 Experience: ${profile.experience} ${profile.experienceType ? `(${profile.experienceType})` : ''}
+📱 Mobile Number: ${profile.mobile}
+👤 Name: ${profile.name}`;
+
+    const whatsappUrl = `https://wa.me/${hrPhone}?text=${encodeURIComponent(message)}`;
+    window.open(whatsappUrl, '_blank');
+    setApplyStep('success');
   };
 
   const resetModal = () => {
@@ -579,38 +599,38 @@ export default function JobBoard() {
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="relative w-full max-w-4xl bg-surface border border-white/10 rounded-[2.5rem] shadow-2xl shadow-black overflow-hidden max-h-[90vh] overflow-y-auto"
+              className="relative w-full max-w-4xl bg-surface border border-white/10 rounded-[1.5rem] md:rounded-[2.5rem] shadow-2xl shadow-black overflow-hidden max-h-[95vh] md:max-h-[90vh] overflow-y-auto"
             >
               <button 
                 onClick={resetModal}
-                className="absolute top-8 right-8 p-3 rounded-2xl bg-white/5 border border-white/10 hover:bg-brand hover:text-background hover:border-brand transition-all z-10"
+                className="absolute top-4 right-4 md:top-8 md:right-8 p-2 md:p-3 rounded-xl md:rounded-2xl bg-white/5 border border-white/10 hover:bg-brand hover:text-background hover:border-brand transition-all z-20"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5 md:w-6 md:h-6" />
               </button>
 
-              <div className="p-5 md:p-12">
-                <div className="mb-8 md:mb-12">
-                  <div className="inline-block px-4 py-1.5 rounded-full bg-brand/10 text-brand text-[10px] font-black uppercase tracking-[0.2em] mb-4">
+              <div className="p-4 md:p-12">
+                <div className="mb-6 md:mb-12">
+                  <div className="inline-block px-3 py-1 rounded-full bg-brand/10 text-brand text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] mb-4">
                     {selectedJob.status} POSITION
                   </div>
-                  <h2 className="text-3xl md:text-5xl font-black italic tracking-tighter mb-2 glow-text">{selectedJob.company}</h2>
-                  <p className="text-white/40 font-bold uppercase tracking-[0.3em]">{selectedJob.account}</p>
+                  <h2 className="text-2xl md:text-5xl font-black italic tracking-tighter mb-2 glow-text leading-tight">{selectedJob.company}</h2>
+                  <p className="text-white/40 text-[10px] md:text-xs font-bold uppercase tracking-[0.3em]">{selectedJob.account}</p>
                 </div>
 
-                <div className="grid md:grid-cols-3 gap-6 md:gap-8 mb-8 md:mb-12">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 md:gap-8 mb-8 md:mb-12">
                   <div className="space-y-1">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-brand">Shifts</p>
-                    <p className="font-medium">{selectedJob.shifts}</p>
+                    <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-brand">Shifts</p>
+                    <p className="font-medium text-sm md:text-base">{selectedJob.shifts}</p>
                   </div>
                   <div className="space-y-1">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-brand">Salary Range</p>
-                    <p className="font-medium">{selectedJob.salary}</p>
+                    <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-brand">Salary Range</p>
+                    <p className="font-medium text-sm md:text-base">{selectedJob.salary}</p>
                   </div>
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-black uppercase tracking-widest text-brand">Location</p>
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">{selectedJob.location}</p>
-                      <div className="flex gap-1 ml-2">
+                  <div className="space-y-1 md:space-y-2">
+                    <p className="text-[9px] md:text-[10px] font-black uppercase tracking-widest text-brand">Location</p>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="font-medium text-sm md:text-base">{selectedJob.location}</p>
+                      <div className="flex gap-1">
                         <button 
                           onClick={handleCopyLocation}
                           className="p-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-brand hover:text-background hover:border-brand transition-all text-xs"
@@ -628,45 +648,134 @@ export default function JobBoard() {
                   </div>
                 </div>
 
-                <div className="space-y-6 md:space-y-8">
-                  <div className="p-5 md:p-8 rounded-3xl bg-white/5 border border-white/10">
-                    <div className="flex items-center justify-between mb-6">
-                      <h4 className="text-lg font-black italic flex items-center gap-3">
-                        <Search className="w-5 h-5 text-brand" /> Detailed Description
+                <div className="space-y-5 md:space-y-8">
+                  <div className="p-4 md:p-8 rounded-2xl md:rounded-3xl bg-white/5 border border-white/10">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4 md:mb-6">
+                      <h4 className="text-base md:text-lg font-black italic flex items-center gap-3">
+                        <Search className="w-4 h-4 md:w-5 md:h-5 text-brand" /> Detailed Description
                       </h4>
                       <button 
                         onClick={handleCopy}
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-brand hover:text-background hover:border-brand transition-all text-xs font-bold uppercase"
+                        className="flex items-center justify-center gap-2 px-3 py-1.5 md:px-4 md:py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-brand hover:text-background hover:border-brand transition-all text-[10px] md:text-xs font-bold uppercase w-full md:w-auto"
                       >
-                        {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                        {copied ? <Check className="w-3 h-3 md:w-3.5 md:h-3.5" /> : <Copy className="w-3 h-3 md:w-3.5 md:h-3.5" />}
                         {copied ? "COPIED" : "COPY DETAILS"}
                       </button>
                     </div>
-                    <div className="text-white/60 leading-relaxed text-sm whitespace-pre-wrap">
+                    <div className="text-white/60 leading-relaxed text-[13px] md:text-sm whitespace-pre-wrap">
                       {selectedJob.details}
                     </div>
                   </div>
 
-                  <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <div className="p-4 md:p-6 rounded-2xl glass border-brand/20 flex items-center gap-4">
-                      <CheckCircle2 className="w-8 h-8 text-brand shrink-0" />
+                  {applyStep === 'initial' ? (
+                    <motion.div 
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-8 mb-4 flex justify-center"
+                    >
+                      <button 
+                        onClick={() => setApplyStep('hr-selection')}
+                        className="cta"
+                      >
+                        <span className="hover-underline-animation"> APPLY FOR THIS POSITION </span>
+                        <svg
+                          id="arrow-horizontal"
+                          xmlns="http://www.w3.org/2000/svg"
+                          width="30"
+                          height="10"
+                          viewBox="0 0 46 16"
+                        >
+                          <path
+                            id="Path_10"
+                            data-name="Path 10"
+                            d="M8,0,6.545,1.455l5.506,5.506H-30V9.039H12.052L6.545,14.545,8,16l8-8Z"
+                            transform="translate(30)"
+                          ></path>
+                        </svg>
+                      </button>
+                    </motion.div>
+                  ) : applyStep === 'hr-selection' ? (
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="mt-6 md:mt-8 p-6 md:p-12 rounded-2xl md:rounded-[3.5rem] glass border-white/5 bg-gradient-to-br from-brand/5 via-transparent to-transparent flex flex-col items-center"
+                    >
+                      <div className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.4em] md:tracking-[0.6em] mb-8 md:mb-12 text-white/20">
+                        Choose Representative
+                      </div>
+                      <div className="w-full max-w-sm">
+                        {HR_TEAM.map(hr => (
+                          <button
+                            key={hr.id}
+                            onClick={() => handleApplyToHr(hr.phone)}
+                            className="w-full p-6 md:p-10 rounded-xl md:rounded-[2rem] bg-white/[0.03] border border-white/10 hover:border-brand/40 hover:bg-brand/[0.03] transition-all flex items-center justify-between group relative overflow-hidden"
+                          >
+                            <div className="absolute inset-0 bg-gradient-to-tr from-brand/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                            <div className="flex items-center gap-4 md:gap-7 relative z-10">
+                              <div className="w-10 h-10 md:w-16 md:h-16 rounded-xl md:rounded-3xl bg-white/5 flex items-center justify-center text-[9px] md:text-[11px] font-black tracking-widest border border-white/10 group-hover:border-brand/30 group-hover:text-brand transition-all">
+                                HR
+                              </div>
+                              <div className="text-left">
+                                <span className="block font-black italic text-lg md:text-2xl tracking-tighter text-white group-hover:text-brand transition-colors">{hr.name}</span>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <div className="w-1 md:w-1.5 h-1 md:h-1.5 rounded-full bg-brand shadow-[0_0_10px_#1fcfb1]" />
+                                  <span className="text-[7px] md:text-[9px] font-bold text-white/40 uppercase tracking-[0.2em]">Ready to assist</span>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="relative z-10 w-9 h-9 md:w-12 md:h-12 rounded-full bg-white/5 flex items-center justify-center border border-white/10 group-hover:bg-brand group-hover:text-background group-hover:scale-110 transition-all shadow-xl">
+                              <ChevronRight className="w-4 h-4 md:w-6 md:h-6" />
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                      <button 
+                        onClick={() => setApplyStep('initial')}
+                        className="mt-8 text-[9px] md:text-[10px] font-black text-white/10 hover:text-white transition-colors uppercase tracking-[0.5em] border-b border-transparent hover:border-white/10 pb-1"
+                      >
+                        Cancel
+                      </button>
+                    </motion.div>
+                  ) : (
+                    <motion.div 
+                      initial={{ opacity: 0, scale: 0.95 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      className="mt-8 p-8 md:p-12 rounded-2xl md:rounded-3xl glass border-brand/20 bg-brand/10 text-center"
+                    >
+                      <div className="w-12 h-12 md:w-20 md:h-20 bg-brand rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6 shadow-[0_0_30px_rgba(31,207,177,0.4)]">
+                        <Check className="w-6 h-6 md:w-10 md:h-10 text-background" />
+                      </div>
+                      <h4 className="text-xl md:text-2xl font-black italic mb-2 tracking-tight">APPLICATION SENT!</h4>
+                      <p className="text-white/60 mb-6 md:mb-8 max-w-xs mx-auto text-[13px] md:text-sm">You have been redirected to WhatsApp to complete your application with the HR team.</p>
+                      <button 
+                        onClick={resetModal}
+                        className="px-6 py-2.5 md:px-8 md:py-3 rounded-xl border border-brand/30 text-brand font-bold text-[10px] md:text-xs uppercase tracking-widest hover:bg-brand hover:text-background transition-all"
+                      >
+                        Close Window
+                      </button>
+                    </motion.div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div className="p-4 md:p-6 rounded-xl md:rounded-2xl glass border-brand/20 flex items-center gap-4">
+                      <CheckCircle2 className="w-6 h-6 md:w-8 md:h-8 text-brand shrink-0" />
                       <div>
-                        <p className="text-xs font-bold uppercase text-white/40">Requirements</p>
-                        <p className="text-sm font-bold">{selectedJob.graduation}</p>
+                        <p className="text-[10px] font-bold uppercase text-white/40">Requirements</p>
+                        <p className="text-[13px] md:text-sm font-bold">{selectedJob.graduation}</p>
                       </div>
                     </div>
-                    <div className="p-4 md:p-6 rounded-2xl glass border-brand/20 flex items-center gap-4">
-                      <Languages className="w-8 h-8 text-brand shrink-0" />
+                    <div className="p-4 md:p-6 rounded-xl md:rounded-2xl glass border-brand/20 flex items-center gap-4">
+                      <Languages className="w-6 h-6 md:w-8 md:h-8 text-brand shrink-0" />
                       <div>
-                        <p className="text-xs font-bold uppercase text-white/40">English Level</p>
-                        <p className="text-sm font-bold">{selectedJob.languageRequirement}</p>
+                        <p className="text-[10px] font-bold uppercase text-white/40">English Level</p>
+                        <p className="text-[13px] md:text-sm font-bold">{selectedJob.languageRequirement}</p>
                       </div>
                     </div>
-                    <div className="p-4 md:p-6 rounded-2xl glass border-brand/20 flex items-center gap-4 md:col-span-2 lg:col-span-1">
-                      <AlertCircle className="w-8 h-8 text-brand shrink-0" />
+                    <div className="p-4 md:p-6 rounded-xl md:rounded-2xl glass border-brand/20 flex items-center gap-4 sm:col-span-2 lg:col-span-1">
+                      <AlertCircle className="w-6 h-6 md:w-8 md:h-8 text-brand shrink-0" />
                       <div>
-                        <p className="text-xs font-bold uppercase text-white/40">Interview Type</p>
-                        <p className="text-sm font-bold">{selectedJob.interview}</p>
+                        <p className="text-[10px] font-bold uppercase text-white/40">Interview Type</p>
+                        <p className="text-[13px] md:text-sm font-bold">{selectedJob.interview}</p>
                       </div>
                     </div>
                   </div>
