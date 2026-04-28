@@ -80,7 +80,7 @@ export default function Admin() {
   }, []);
 
   const addHr = async () => {
-    if (!hrForm.name || !hrForm.phone) return alert('الاسم والرقم مطلوبين!');
+    if (!hrForm.name || !hrForm.phone) return alert('Name and Number is required!');
     setHrSaving(true);
     const { data } = await supabase.from('hr_team').insert([hrForm]).select();
     if (data) setHrTeam(prev => [...prev, data[0]]);
@@ -89,7 +89,7 @@ export default function Admin() {
   };
 
   const deleteHr = async (id: number) => {
-    if (!confirm('مسح الـ HR ده؟')) return;
+    if (!confirm('Delete this HR contract?')) return;
     await supabase.from('hr_team').delete().eq('id', id);
     setHrTeam(prev => prev.filter(h => h.id !== id));
   };
@@ -1172,7 +1172,7 @@ export default function Admin() {
                 <div className="form-title" style={{ marginBottom: '1rem' }}>📱 HR Contact Info</div>
                 <div className="form-grid">
                   <div className="form-field">
-                    <label>💬 WhatsApp (مثلاً 201xxxxxxxxx)</label>
+                    <label>💬 WhatsApp (example 201xxxxxxxxx)</label>
                     <input
                       value={form.contact_whatsapp || ''}
                       placeholder="201xxxxxxxxx"
