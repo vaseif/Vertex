@@ -65,6 +65,40 @@ export default function Admin() {
   const [rowAnim, setRowAnim] = useState(false);
   const [filterTab, setFilterTab] = useState<'all' | 'Active' | 'Hold' | 'Inactive'>('all');
 
+  // HR Team
+  const [hrTeam, setHrTeam] = useState<{id: number; name: string; phone: string; active: boolean}[]>([]);
+  const [hrForm, setHrForm] = useState({ name: '', phone: '' });
+  const [hrSaving, setHrSaving] = useState(false);
+  const [showHrSection, setShowHrSection] = useState(false);
+
+  useEffect(() => {
+    const fetchHr = async () => {
+      const { data } = await supabase.from('hr_team').select('*').order('id', { ascending: true });
+      setHrTeam(data || []);
+    };
+    fetchHr();
+  }, []);
+
+  const addHr = async () => {
+    if (!hrForm.name || !hrForm.phone) return alert('الاسم والرقم مطلوبين!');
+    setHrSaving(true);
+    const { data } = await supabase.from('hr_team').insert([hrForm]).select();
+    if (data) setHrTeam(prev => [...prev, data[0]]);
+    setHrForm({ name: '', phone: '' });
+    setHrSaving(false);
+  };
+
+  const deleteHr = async (id: number) => {
+    if (!confirm('مسح الـ HR ده؟')) return;
+    await supabase.from('hr_team').delete().eq('id', id);
+    setHrTeam(prev => prev.filter(h => h.id !== id));
+  };
+
+  const toggleHr = async (id: number, current: boolean) => {
+    await supabase.from('hr_team').update({ active: !current }).eq('id', id);
+    setHrTeam(prev => prev.map(h => h.id === id ? { ...h, active: !current } : h));
+  };
+
   // Password gate state
   const [accessModalOpen, setAccessModalOpen] = useState(true);
   const [passwordInput, setPasswordInput] = useState('');
@@ -1177,6 +1211,73 @@ export default function Admin() {
             </div>
           )}
 
+          {/* ── HR Team Section ── */}
+          <div style={{ background: '#0c0c0f', border: '1px solid #1a1a1e', borderTop: '2px solid #f59e0b', borderRadius: 18, padding: '1.5rem', marginBottom: '2rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showHrSection ? '1.5rem' : 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 20 }}>👥</span>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: 14, color: '#f59e0b', letterSpacing: '0.05em' }}>HR TEAM</div>
+                  <div style={{ fontSize: 11, color: '#444', marginTop: 2 }}>{hrTeam.filter(h => h.active).length} active members</div>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowHrSection(!showHrSection)}
+                style={{ padding: '7px 16px', borderRadius: 10, border: '1px solid #f59e0b40', background: 'rgba(245,158,11,0.1)', color: '#f59e0b', fontWeight: 700, fontSize: 12, cursor: 'pointer', fontFamily: 'Syne, sans-serif' }}
+              >
+                {showHrSection ? '✕ Close' : '+ Manage HR'}
+              </button>
+            </div>
+
+            {showHrSection && (
+              <>
+                {/* Add HR Form */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 10, marginBottom: '1.5rem' }}>
+                  <div className="form-field" style={{ margin: 0 }}>
+                    <label>👤 Name</label>
+                    <input value={hrForm.name} placeholder="HR. Ahmed Mohamed" onChange={e => setHrForm({ ...hrForm, name: e.target.value })} />
+                  </div>
+                  <div className="form-field" style={{ margin: 0 }}>
+                    <label>📱 WhatsApp Number (مثلاً 201xxxxxxxxx)</label>
+                    <input value={hrForm.phone} placeholder="201xxxxxxxxx" onChange={e => setHrForm({ ...hrForm, phone: e.target.value })} />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'flex-end' }}>
+                    <button
+                      onClick={addHr}
+                      disabled={hrSaving}
+                      style={{ padding: '11px 20px', borderRadius: 10, background: '#f59e0b', color: '#000', fontWeight: 800, border: 'none', cursor: 'pointer', fontSize: 13, fontFamily: 'Syne, sans-serif', whiteSpace: 'nowrap' }}
+                    >
+                      {hrSaving ? '...' : '+ Add'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* HR List */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  {hrTeam.length === 0 && <p style={{ color: '#333', fontSize: 13 }}>No HR members yet.</p>}
+                  {hrTeam.map(hr => (
+                    <div key={hr.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 16px', borderRadius: 12, background: hr.active ? 'rgba(245,158,11,0.07)' : '#0a0a0c', border: `1px solid ${hr.active ? 'rgba(245,158,11,0.2)' : '#1a1a1e'}` }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 10, background: hr.active ? 'rgba(245,158,11,0.15)' : '#111', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>👤</div>
+                        <div>
+                          <div style={{ fontWeight: 700, fontSize: 14, color: hr.active ? '#e8e8ec' : '#444' }}>{hr.name}</div>
+                          <div style={{ fontSize: 12, color: '#555', marginTop: 2 }}>+{hr.phone}</div>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <a href={`https://wa.me/${hr.phone}`} target="_blank" rel="noreferrer" style={{ padding: '6px 12px', borderRadius: 8, background: 'rgba(37,211,102,0.1)', border: '1px solid rgba(37,211,102,0.2)', color: '#25d366', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>💬 Test</a>
+                        <button onClick={() => toggleHr(hr.id, hr.active)} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #222', background: 'transparent', color: hr.active ? '#f59e0b' : '#555', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: 'Syne, sans-serif' }}>
+                          {hr.active ? '⏸ Disable' : '▶ Enable'}
+                        </button>
+                        <button onClick={() => deleteHr(hr.id)} style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid rgba(239,68,68,0.2)', background: 'transparent', color: '#ef4444', cursor: 'pointer', fontSize: 12, fontWeight: 700, fontFamily: 'Syne, sans-serif' }}>🗑</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+
           {/* ── Filter Tabs ── */}
           <div style={{ display: 'flex', gap: 8, marginBottom: '1rem', flexWrap: 'wrap' }}>
             {(['all', 'Active', 'Hold', 'Inactive'] as const).map(tab => (
@@ -1228,7 +1329,7 @@ export default function Admin() {
               <table className="offers-table">
                 <thead>
                   <tr>
-                    <th>#</th><th>Order</th><th>Company</th><th>Account</th>
+                    <th>#</th><th>Company</th><th>Account</th>
                     <th>Salary</th><th>Location</th><th>Status</th><th>Actions</th>
                   </tr>
                 </thead>
@@ -1239,12 +1340,6 @@ export default function Admin() {
                     return (
                       <tr key={offer.id} style={{ animationDelay: `${idx * 0.04}s` }}>
                         <td className="td-id">#{offer.id}</td>
-                        <td>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                            <button onClick={() => moveOffer(offer.id, 'up')} style={{ background: 'none', border: '1px solid #222', borderRadius: 6, color: '#666', cursor: 'pointer', fontSize: 10, padding: '2px 6px' }}>▲</button>
-                            <button onClick={() => moveOffer(offer.id, 'down')} style={{ background: 'none', border: '1px solid #222', borderRadius: 6, color: '#666', cursor: 'pointer', fontSize: 10, padding: '2px 6px' }}>▼</button>
-                          </div>
-                        </td>
                         <td className="td-company">{offer.company}</td>
                         <td className="td-account">{offer.account}</td>
                         <td className="td-salary">{offer.salary || '—'}</td>
