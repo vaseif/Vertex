@@ -24,6 +24,7 @@ interface Offer {
   contact_phone: string;
   contact_email: string;
   contact_note: string;
+  sort_order: number;
 }
 
 const empty: Omit<Offer, 'id'> = {
@@ -48,6 +49,7 @@ const empty: Omit<Offer, 'id'> = {
   contact_phone: '',
   contact_email: '',
   contact_note: '',
+  sort_order: 0,
 };
 
 export default function Admin() {
@@ -61,6 +63,7 @@ export default function Admin() {
   const [editForm, setEditForm] = useState<Omit<Offer, 'id'>>(empty);
   const [updating, setUpdating] = useState(false);
   const [rowAnim, setRowAnim] = useState(false);
+  const [filterTab, setFilterTab] = useState<'all' | 'Active' | 'Hold' | 'Inactive'>('all');
 
   // Password gate state
   const [accessModalOpen, setAccessModalOpen] = useState(true);
@@ -71,7 +74,7 @@ export default function Admin() {
 
   const fetchOffers = async () => {
     setLoading(true);
-    const { data } = await supabase.from('offers').select('*').order('id', { ascending: true });
+    const { data } = await supabase.from('offers').select('*').order('sort_order', { ascending: true }).order('id', { ascending: true });
     setOffers(data || []);
     setLoading(false);
     setTimeout(() => setRowAnim(true), 50);
@@ -89,6 +92,17 @@ export default function Admin() {
     if (!confirm('متأكد إنك عايز تمسح الـ offer ده؟')) return;
     await supabase.from('offers').delete().eq('id', id);
     setOffers(prev => prev.filter(o => o.id !== id));
+  };
+
+  const moveOffer = async (id: number, dir: 'up' | 'down') => {
+    const list = [...offers];
+    const idx = list.findIndex(o => o.id === id);
+    const swapIdx = dir === 'up' ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= list.length) return;
+    [list[idx], list[swapIdx]] = [list[swapIdx], list[idx]];
+    const updated = list.map((o, i) => ({ ...o, sort_order: i }));
+    setOffers(updated);
+    await Promise.all(updated.map(o => supabase.from('offers').update({ sort_order: o.sort_order }).eq('id', o.id)));
   };
 
   const handleSave = async () => {
@@ -149,10 +163,12 @@ export default function Admin() {
     window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
   };
 
-  const filtered = offers.filter(o =>
-    o.company.toLowerCase().includes(search.toLowerCase()) ||
-    o.account.toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = offers.filter(o => {
+    const matchSearch = o.company.toLowerCase().includes(search.toLowerCase()) ||
+      o.account.toLowerCase().includes(search.toLowerCase());
+    const matchTab = filterTab === 'all' || o.status === filterTab;
+    return matchSearch && matchTab;
+  });
 
   const statusConfig: Record<string, { bg: string; color: string; border: string }> = {
     Active:   { bg: 'rgba(31,207,177,0.12)', color: '#1fcfb1', border: 'rgba(31,207,177,0.3)' },
@@ -167,10 +183,6 @@ export default function Admin() {
     ['graduation','Graduation'], ['nationality','Nationality'],
     ['language','Language'], ['training','Training'],
     ['process','Process'],
-    ['contact_whatsapp','📱 WhatsApp HR (رقم بالكود مثلاً 201xxxxxxxx)'],
-    ['contact_phone','📞 Phone HR'],
-    ['contact_email','✉️ Email HR'],
-    ['contact_note','💬 ملاحظة التواصل (مثلاً: ابعت رسالة على واتساب بس)'],
   ];
 
   return (
@@ -1120,11 +1132,75 @@ export default function Admin() {
                   style={{ resize: 'vertical' }}
                 />
               </div>
+
+              {/* HR Contact Section */}
+              <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid #1e1e24' }}>
+                <div className="form-title" style={{ marginBottom: '1rem' }}>📱 HR Contact Info</div>
+                <div className="form-grid">
+                  <div className="form-field">
+                    <label>💬 WhatsApp (مثلاً 201xxxxxxxxx)</label>
+                    <input
+                      value={form.contact_whatsapp || ''}
+                      placeholder="201xxxxxxxxx"
+                      onChange={e => setForm({ ...form, contact_whatsapp: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>📞 Phone</label>
+                    <input
+                      value={form.contact_phone || ''}
+                      placeholder="01xxxxxxxxx"
+                      onChange={e => setForm({ ...form, contact_phone: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>✉️ Email</label>
+                    <input
+                      value={form.contact_email || ''}
+                      placeholder="hr@company.com"
+                      onChange={e => setForm({ ...form, contact_email: e.target.value })}
+                    />
+                  </div>
+                  <div className="form-field">
+                    <label>💡 ملاحظة التواصل</label>
+                    <input
+                      value={form.contact_note || ''}
+                      placeholder="مثلاً: ابعت رسالة على واتساب بس"
+                      onChange={e => setForm({ ...form, contact_note: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
               <button className="btn-save" onClick={handleSave} disabled={saving}>
                 {saving ? 'Saving…' : 'Save Offer'}
               </button>
             </div>
           )}
+
+          {/* ── Filter Tabs ── */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: '1rem', flexWrap: 'wrap' }}>
+            {(['all', 'Active', 'Hold', 'Inactive'] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setFilterTab(tab)}
+                style={{
+                  padding: '7px 18px',
+                  borderRadius: 10,
+                  border: `1px solid ${filterTab === tab ? (tab === 'Active' ? '#1fcfb1' : tab === 'Hold' ? '#f59e0b' : tab === 'Inactive' ? '#ef4444' : '#1fcfb1') : '#222'}`,
+                  background: filterTab === tab ? (tab === 'Active' ? 'rgba(31,207,177,0.15)' : tab === 'Hold' ? 'rgba(245,158,11,0.15)' : tab === 'Inactive' ? 'rgba(239,68,68,0.15)' : 'rgba(31,207,177,0.15)') : 'transparent',
+                  color: filterTab === tab ? (tab === 'Active' ? '#1fcfb1' : tab === 'Hold' ? '#f59e0b' : tab === 'Inactive' ? '#ef4444' : '#1fcfb1') : '#555',
+                  fontWeight: 700, fontSize: 12, cursor: 'pointer',
+                  fontFamily: 'Syne, sans-serif', letterSpacing: '0.05em',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {tab === 'all' ? `All (${offers.length})` :
+                 tab === 'Active' ? `✅ Active (${offers.filter(o => o.status === 'Active').length})` :
+                 tab === 'Hold' ? `⏸ Hold (${offers.filter(o => o.status === 'Hold').length})` :
+                 `❌ Inactive (${offers.filter(o => o.status === 'Inactive').length})`}
+              </button>
+            ))}
+          </div>
 
           {/* ── Search ── */}
           <div className="search-wrap">
@@ -1152,7 +1228,7 @@ export default function Admin() {
               <table className="offers-table">
                 <thead>
                   <tr>
-                    <th>#</th><th>Company</th><th>Account</th>
+                    <th>#</th><th>Order</th><th>Company</th><th>Account</th>
                     <th>Salary</th><th>Location</th><th>Status</th><th>Actions</th>
                   </tr>
                 </thead>
@@ -1163,6 +1239,12 @@ export default function Admin() {
                     return (
                       <tr key={offer.id} style={{ animationDelay: `${idx * 0.04}s` }}>
                         <td className="td-id">#{offer.id}</td>
+                        <td>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <button onClick={() => moveOffer(offer.id, 'up')} style={{ background: 'none', border: '1px solid #222', borderRadius: 6, color: '#666', cursor: 'pointer', fontSize: 10, padding: '2px 6px' }}>▲</button>
+                            <button onClick={() => moveOffer(offer.id, 'down')} style={{ background: 'none', border: '1px solid #222', borderRadius: 6, color: '#666', cursor: 'pointer', fontSize: 10, padding: '2px 6px' }}>▼</button>
+                          </div>
+                        </td>
                         <td className="td-company">{offer.company}</td>
                         <td className="td-account">{offer.account}</td>
                         <td className="td-salary">{offer.salary || '—'}</td>
@@ -1299,6 +1381,29 @@ export default function Admin() {
                 rows={5}
                 style={{ resize: 'vertical' }}
               />
+            </div>
+
+            {/* HR Contact in Edit */}
+            <div style={{ marginTop: 20, paddingTop: 20, borderTop: '1px solid #1e1e24' }}>
+              <div className="form-title" style={{ marginBottom: '1rem' }}>📱 HR Contact Info</div>
+              <div className="modal-form-grid">
+                <div className="form-field">
+                  <label>💬 WhatsApp</label>
+                  <input value={(editForm as any).contact_whatsapp || ''} placeholder="201xxxxxxxxx" onChange={e => setEditForm({ ...editForm, contact_whatsapp: e.target.value } as any)} />
+                </div>
+                <div className="form-field">
+                  <label>📞 Phone</label>
+                  <input value={(editForm as any).contact_phone || ''} placeholder="01xxxxxxxxx" onChange={e => setEditForm({ ...editForm, contact_phone: e.target.value } as any)} />
+                </div>
+                <div className="form-field">
+                  <label>✉️ Email</label>
+                  <input value={(editForm as any).contact_email || ''} placeholder="hr@company.com" onChange={e => setEditForm({ ...editForm, contact_email: e.target.value } as any)} />
+                </div>
+                <div className="form-field">
+                  <label>💡 ملاحظة</label>
+                  <input value={(editForm as any).contact_note || ''} placeholder="ابعت رسالة على واتساب بس" onChange={e => setEditForm({ ...editForm, contact_note: e.target.value } as any)} />
+                </div>
+              </div>
             </div>
 
             <div className="modal-actions">
