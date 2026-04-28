@@ -671,25 +671,7 @@ export default function JobBoard() {
                     </div>
                   </div>
 
-                                      <motion.div 
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="mt-8 p-8 md:p-12 rounded-2xl md:rounded-3xl glass border-brand/20 bg-brand/10 text-center"
-                    >
-                      <div className="w-12 h-12 md:w-20 md:h-20 bg-brand rounded-full flex items-center justify-center mx-auto mb-4 md:mb-6 shadow-[0_0_30px_rgba(31,207,177,0.4)]">
-                        <Check className="w-6 h-6 md:w-10 md:h-10 text-background" />
-                      </div>
-                      <h4 className="text-xl md:text-2xl font-black italic mb-2 tracking-tight">APPLICATION SENT!</h4>
-                      <p className="text-white/60 mb-6 md:mb-8 max-w-xs mx-auto text-[13px] md:text-sm">Application submitted successfully!</p>
-                      <button 
-                        onClick={resetModal}
-                        className="px-6 py-2.5 md:px-8 md:py-3 rounded-xl border border-brand/30 text-brand font-bold text-[10px] md:text-xs uppercase tracking-widest hover:bg-brand hover:text-background transition-all"
-                      >
-                        Close Window
-                      </button>
-                    </motion.div>
-                  ){'}'}
-
+                                      
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     <div className="p-4 md:p-6 rounded-xl md:rounded-2xl glass border-brand/20 flex items-center gap-4">
                       <CheckCircle2 className="w-6 h-6 md:w-8 md:h-8 text-brand shrink-0" />
