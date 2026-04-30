@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 
-const TOTAL_DAYS = 30;
+const TOTAL_DAYS = 28;
 
 export default function PaymentNotification() {
   const [visible, setVisible] = useState(false);
@@ -37,7 +37,7 @@ export default function PaymentNotification() {
   return (
     <div style={styles.container}>
       <span>
-        ⏳ {daysLeft} days left to fully activate your website
+        {daysLeft} days left to fully activate your website
       </span>
       <button onClick={() => setVisible(false)} style={styles.close}>
         ✖
