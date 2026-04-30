@@ -37,7 +37,7 @@ export default function PaymentNotification() {
   return (
     <div style={styles.container}>
       <span>
-        {daysLeft} Complete your payment to avoid any service interruption
+        {daysLeft} days Left - Complete your payment to avoid any service interruption
       </span>
       <button onClick={() => setVisible(false)} style={styles.close}>
         ✖
