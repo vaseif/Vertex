@@ -9,7 +9,7 @@ import Hero from './components/Hero';
 import JobBoard from './components/JobBoard';
 import Footer from './components/Footer';
 import Admin from './pages/Admin';
-
+import PaymentNotification from "./components/PaymentNotification";
 export default function App() {
   return (
     <BrowserRouter>
@@ -23,6 +23,7 @@ export default function App() {
               <JobBoard />
             </main>
             <Footer />
+            <PaymentNotification />
           </div>
         } />
 
